@@ -16,7 +16,6 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
 
-// DOM Elements
 const menuScreen = document.getElementById('menu-screen');
 const lobbyScreen = document.getElementById('lobby-screen');
 const gameScreen = document.getElementById('game-screen');
@@ -31,7 +30,6 @@ const guestWaiting = document.getElementById('guest-waiting');
 const botCountInput = document.getElementById('bot-count');
 const startGameBtn = document.getElementById('start-game-btn');
 const playersContainer = document.getElementById('players-container');
-const rouletteTable = document.getElementById('roulette-table');
 const turnIndicator = document.getElementById('turn-indicator');
 const eliminationOverlay = document.getElementById('elimination-overlay');
 const winnerOverlay = document.getElementById('winner-overlay');
@@ -110,8 +108,12 @@ function enterLobby(code) {
     const playerList = Object.keys(players).map(id => ({ id, ...players[id] }));
     isHost = (data.host === myUid);
 
+    // Update Lobby UI (Uses the non-absolute CSS classes now)
     lobbyPlayerList.innerHTML = playerList.map(p => `
-      <div class="player-card"><img src="${p.avatar}" /><span>${p.name}</span></div>
+      <div class="player-card">
+        <img src="${p.avatar}" alt="${p.name}" />
+        <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
+      </div>
     `).join('');
 
     hostControls.style.display = isHost ? 'block' : 'none';
@@ -125,7 +127,7 @@ function enterLobby(code) {
       gameScreen.classList.remove('active');
       lobbyScreen.classList.add('active');
       winnerOverlay.style.display = 'none';
-      rouletteTable.classList.remove('spinning');
+      eliminationOverlay.style.display = 'none';
     }
   });
 
@@ -183,23 +185,25 @@ async function runHostGameLoop() {
       return;
     }
 
-    // 1. Start Spinning Animation
+    // 1. Pick the "target" to make it look like it's spinning towards someone
     const spinPick = active[Math.floor(Math.random() * active.length)];
     await update(ref(db, `lobbies/${currentLobbyCode}/game`), { currentTurn: spinPick, eliminated: null });
     
+    // Wait for the spin animation to finish
     setTimeout(async () => {
       // 2. Pick the victim (Eliminate)
       const eliminatedId = active[Math.floor(Math.random() * active.length)];
       await update(ref(db, `lobbies/${currentLobbyCode}/game`), { eliminated: eliminatedId });
       
+      // Wait for the "suck in" animation (1.5 seconds)
       setTimeout(async () => {
-        // 3. Remove victim and reset
+        // 3. Remove victim from active list
         active = active.filter(id => id !== eliminatedId);
         await update(ref(db, `lobbies/${currentLobbyCode}/game`), { activePlayers: active, eliminated: null, currentTurn: null });
         await update(ref(db, `lobbies/${currentLobbyCode}/players/${eliminatedId}`), { alive: false });
-        step();
-      }, 2000); // Elimination time
-    }, 2500); // Spin time
+        step(); // Run next turn
+      }, 1500); 
+    }, 2500); 
   };
   step();
 }
@@ -209,17 +213,17 @@ function updateGameUI(data, playerList) {
   const game = data.game || {};
   const totalPlayers = playerList.length;
   
-  // 1. Position players in a perfect circle
+  // Calculate circle positions
   playersContainer.innerHTML = playerList.map((p, index) => {
-    // Calculate angle (start at top: -90 degrees)
+    // Start at top (-90 degrees), distribute evenly
     const angle = (index / totalPlayers) * 2 * Math.PI - (Math.PI / 2);
-    // Calculate position (radius is 42% of the table to keep them on the edge)
-    const x = 50 + 42 * Math.cos(angle);
-    const y = 50 + 42 * Math.sin(angle);
+    // Radius is 40% of the table
+    const x = 50 + 40 * Math.cos(angle);
+    const y = 50 + 40 * Math.sin(angle);
 
     const isTurn = (p.id === game.currentTurn);
     const isDead = !p.alive;
-    const isBeingTaken = (p.id === game.eliminated); // Triggers suck-in animation
+    const isBeingTaken = (p.id === game.eliminated); // Triggers suck in animation
 
     return `
       <div class="player-card ${isTurn ? 'active' : ''} ${isDead ? 'eliminated' : ''} ${isBeingTaken ? 'being-taken' : ''}"
@@ -230,19 +234,17 @@ function updateGameUI(data, playerList) {
     `;
   }).join('');
 
-  // 2. Handle Table Spinning Animation
-  if (game.currentTurn) {
-    rouletteTable.classList.add('spinning');
+  // Update turn text
+  if (game.currentTurn && !game.eliminated) {
     const p = playerList.find(x => x.id === game.currentTurn);
-    turnIndicator.textContent = `Spinning for ${p ? p.name : '...'}!`;
+    turnIndicator.textContent = `Targeting ${p ? p.name : '...'}!`;
+  } else if (game.eliminated) {
+    turnIndicator.textContent = "TAKEN!";
   } else {
-    rouletteTable.classList.remove('spinning');
     turnIndicator.textContent = "Spinning...";
   }
 
-  // 3. Handle Winner
   if (data.status === 'finished' && game.winner) {
-    rouletteTable.classList.remove('spinning');
     const winnerPlayer = playerList.find(x => x.id === game.winner);
     winnerOverlay.style.display = 'flex';
     winnerText.textContent = `CONGRATULATIONS ${winnerPlayer ? winnerPlayer.name.toUpperCase() : ''} U WON!`;
