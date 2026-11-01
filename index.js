@@ -11,7 +11,7 @@ if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Save files directly to your computer
+// Save files directly to your computer (for local development)
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, uploadDir);
@@ -34,5 +34,13 @@ app.post('/api/upload-avatar', upload.single('avatar'), (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+// --- THIS IS THE CRITICAL LINE FOR VERCEL ---
+// Export the app as a module so Vercel can run it as a serverless function.
+module.exports = app;
+
+// Keep the listen() call for local development ONLY.
+// Vercel will ignore it.
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+}
