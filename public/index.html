@@ -13,8 +13,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 
   <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
   <style>
@@ -105,7 +103,6 @@
         <button id="upload-btn" class="btn btn-upload" disabled>Upload Avatar</button>
       </div>
 
-      <!-- Username Input -->
       <input type="text" id="username-input" placeholder="ENTER YOUR NAME" maxlength="12" class="name-input" />
       
       <div class="divider"><span>OR</span></div>
@@ -140,13 +137,18 @@
     </div>
   </div>
 
+  <!-- GAME SCREEN -->
   <div id="game-screen" class="screen">
     <div id="game-table">
       <h2 id="turn-indicator" style="position: relative; z-index: 10; margin-bottom: 20px;">Waiting...</h2>
       
+      <!-- THE ROULETTE TABLE -->
       <div id="roulette-table">
-        <div id="table-center"></div>
-        <div id="players-container"></div>
+        <!-- The spinning vortex image in the center -->
+        <img id="table-center-vortex" src="https://imagepaste.org/i/vpxgqzp9.png" alt="Vortex" />
+        
+        <!-- Layer that holds the orbiting players -->
+        <div id="orbit-layer"></div>
       </div>
     </div>
 
@@ -176,13 +178,9 @@
   <script>
     // --- OLD MUSIC LOGIC (RESTORED) ---
     const audioEl = document.getElementById('menu-music');
-
-    // Start audio on first click
     document.addEventListener('click', () => {
       if (audioEl.paused) audioEl.play().catch(() => {});
     });
-
-    // Force it to never stay paused (even if game.js tries to pause it)
     audioEl.addEventListener('pause', () => {
       audioEl.play().catch(() => {});
     });
@@ -201,16 +199,12 @@
     avatarInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
-
       const reader = new FileReader();
       reader.onload = (event) => {
         imageToCrop.src = event.target.result;
         cropperModal.style.display = 'flex';
-        
         if (cropper) cropper.destroy();
-        cropper = new Cropper(imageToCrop, {
-          aspectRatio: 1, viewMode: 1, dragMode: 'move', autoCropArea: 1, background: false
-        });
+        cropper = new Cropper(imageToCrop, { aspectRatio: 1, viewMode: 1, dragMode: 'move', autoCropArea: 1, background: false });
       };
       reader.readAsDataURL(file);
     });
@@ -222,17 +216,12 @@
 
     btnSaveCrop.addEventListener('click', () => {
       if (!cropper) return;
-      
       const canvas = cropper.getCroppedCanvas({ width: 256, height: 256 });
-      
       canvas.toBlob(async (blob) => {
         cropperModal.style.display = 'none';
-        
-        const url = URL.createObjectURL(blob);
-        avatarPreview.src = url;
+        avatarPreview.src = URL.createObjectURL(blob);
         avatarPreview.style.display = 'block';
         avatarPlaceholder.style.display = 'none';
-
         uploadBtn.textContent = 'Uploading...';
         uploadBtn.disabled = true;
 
@@ -242,24 +231,17 @@
         try {
           const res = await fetch('/api/upload-avatar', { method: 'POST', body: formData });
           const data = await res.json();
-          
           if (data.url) {
             window.myAvatarUrl = data.url; 
-            
             document.getElementById('join-btn').disabled = false;
             document.getElementById('host-btn').disabled = false;
             uploadBtn.textContent = 'Uploaded ✓';
             uploadBtn.style.background = '#10b981';
           } else {
-            alert('Upload failed.');
-            uploadBtn.textContent = 'Try Again';
-            uploadBtn.disabled = false;
+            alert('Upload failed.'); uploadBtn.textContent = 'Try Again'; uploadBtn.disabled = false;
           }
         } catch (err) {
-          console.error(err);
-          alert('Error uploading');
-          uploadBtn.textContent = 'Try Again';
-          uploadBtn.disabled = false;
+          console.error(err); alert('Error uploading'); uploadBtn.textContent = 'Try Again'; uploadBtn.disabled = false;
         }
       }, 'image/jpeg', 0.9);
     });
