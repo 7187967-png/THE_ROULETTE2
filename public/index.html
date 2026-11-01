@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Russian Roulette</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ========== MENU SCREEN ========== -->
+  <div id="menu-screen" class="screen active">
+    <h1>Russian Roulette</h1>
+
+    <div class="avatar-section">
+      <img id="avatar-preview" src="" alt="Avatar Preview" />
+      <input type="file" id="avatar-input" accept="image/*" />
+      <button id="upload-btn">Upload Avatar</button>
+    </div>
+
+    <div class="music-control">
+      <button id="music-toggle">🔊 Play Music</button>
+    </div>
+
+    <button id="enter-lobby-btn" disabled>Enter Lobby</button>
+  </div>
+
+  <!-- ========== LOBBY SCREEN ========== -->
+  <div id="lobby-screen" class="screen">
+    <h1>Lobby</h1>
+    <p>Room Code: <strong id="room-code-display"></strong></p>
+
+    <div id="lobby-player-list"></div>
+
+    <div id="host-controls" style="display:none;">
+      <label>Bots: <input type="number" id="bot-count" min="0" max="5" value="0" /></label>
+      <button id="start-game-btn">Start Game</button>
+    </div>
+
+    <div id="guest-waiting" style="display:none;">
+      <p>Waiting for the host to start...</p>
+    </div>
+  </div>
+
+  <!-- ========== GAME SCREEN ========== -->
+  <div id="game-screen" class="screen">
+    <div id="game-table">
+      <div id="players-container"></div>
+      <h2 id="turn-indicator">Waiting...</h2>
+    </div>
+
+    <!-- Elimination Overlay -->
+    <div id="elimination-overlay" class="overlay" style="display:none;">
+      <img src="https://imagepaste.org/i/tph34cc4.png" alt="Eliminated" />
+    </div>
+
+    <!-- Winner Overlay -->
+    <div id="winner-overlay" class="overlay" style="display:none;">
+      <h1>CONGRATULATIONS U WON!</h1>
+      <button id="back-to-lobby-btn">Back to Lobby</button>
+    </div>
+
+    <!-- Chat -->
+    <div id="chat-container">
+      <div id="chat-messages"></div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Type a message..." />
+        <button id="chat-send-btn">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Menu Music -->
+  <audio id="menu-music" loop>
+    <source src="https://www.image2url.com/r2/default/audio/1793564169307-d6bfda4b-1820-4f32-9a8e-696ead87d892.mp3" type="audio/mpeg" />
+  </audio>
+
+  <script type="module" src="game.js"></script>
+</body>
+</html>
