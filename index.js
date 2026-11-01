@@ -1,23 +1,33 @@
 const express = require('express');
-const { put } = require('@vercel/blob');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage() });
+
+// Create uploads folder if it doesn't exist
+const uploadDir = path.join(__dirname, 'public', 'avatars');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Save files directly to your computer
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-avatar.jpg');
+  }
+});
+const upload = multer({ storage: storage });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.post('/api/upload-avatar', upload.single('avatar'), async (req, res) => {
+app.post('/api/upload-avatar', upload.single('avatar'), (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
-
-    const blob = await put(`avatars/${Date.now()}-avatar.jpg`, req.file.buffer, {
-      access: 'public',
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    });
-
-    res.json({ url: blob.url });
+    res.json({ url: `/avatars/${req.file.filename}` });
   } catch (error) {
     console.error('Upload error:', error);
     res.status(500).json({ error: 'Upload failed.' });
@@ -25,8 +35,4 @@ app.post('/api/upload-avatar', upload.single('avatar'), async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
-}
-
-module.exports = app;
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
