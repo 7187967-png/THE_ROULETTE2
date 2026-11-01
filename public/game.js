@@ -23,6 +23,7 @@ const menuScreen = document.getElementById('menu-screen');
 const lobbyScreen = document.getElementById('lobby-screen');
 const gameScreen = document.getElementById('game-screen');
 const joinCodeInput = document.getElementById('join-code-input');
+const usernameInput = document.getElementById('username-input'); // NEW: Username Input
 const joinBtn = document.getElementById('join-btn');
 const hostBtn = document.getElementById('host-btn');
 const roomCodeDisplay = document.getElementById('room-code-display');
@@ -43,6 +44,7 @@ const chatSendBtn = document.getElementById('chat-send-btn');
 
 let myUid = null;
 let myAvatarUrl = ''; 
+let myUsername = ''; // NEW: Store username
 let currentLobbyCode = null;
 let currentLobbyRef = null;
 let isHost = false;
@@ -71,11 +73,17 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// --- CHECK FOR AVATAR FROM INDEX.HTML ---
-const checkAvatar = () => {
+// --- VALIDATION: CHECK AVATAR AND USERNAME ---
+const checkUserDetails = () => {
     myAvatarUrl = window.myAvatarUrl || '';
+    myUsername = usernameInput ? usernameInput.value.trim() : '';
+
     if (!myAvatarUrl) {
         alert("Please upload and confirm an avatar first!");
+        return false;
+    }
+    if (!myUsername) {
+        alert("Please enter a username before joining!");
         return false;
     }
     return true;
@@ -84,7 +92,7 @@ const checkAvatar = () => {
 // --- LOBBY LOGIC ---
 hostBtn.addEventListener('click', () => {
   if (!myUid) return alert("Waiting for authentication...");
-  if (!checkAvatar()) return;
+  if (!checkUserDetails()) return; // Checks both avatar and username
   
   const code = generateRoomCode();
   const lobbyRef = ref(db, 'lobbies/' + code);
@@ -93,14 +101,14 @@ hostBtn.addEventListener('click', () => {
     host: myUid,
     status: 'waiting',
     players: {
-      [myUid]: { name: 'Host', avatar: myAvatarUrl, isBot: false, alive: true }
+      [myUid]: { name: myUsername, avatar: myAvatarUrl, isBot: false, alive: true } // Uses chosen username
     }
   }).then(() => enterLobby(code)).catch(err => alert("Database error: " + err.message));
 });
 
 joinBtn.addEventListener('click', async () => {
   if (!myUid) return alert("Waiting for authentication...");
-  if (!checkAvatar()) return;
+  if (!checkUserDetails()) return; // Checks both avatar and username
   
   const code = joinCodeInput.value.trim().toUpperCase();
   if (code.length !== 4) return alert("Invalid code.");
@@ -109,13 +117,17 @@ joinBtn.addEventListener('click', async () => {
   if (!snapshot.exists()) return alert("Lobby not found!");
   
   const lobby = snapshot.val();
-  // SAFETY CHECK: ensure players exists
   const playersObj = lobby.players || {};
+  
+  // Check if username is already taken in this lobby
+  const nameExists = Object.values(playersObj).some(p => p.name.toLowerCase() === myUsername.toLowerCase());
+  if (nameExists) return alert("That username is already taken in this lobby!");
+
   const playerCount = Object.keys(playersObj).length;
   if (playerCount >= 6) return alert("Lobby is full!");
 
   await update(ref(db, `lobbies/${code}/players/${myUid}`), {
-    name: 'Player', avatar: myAvatarUrl, isBot: false, alive: true
+    name: myUsername, avatar: myAvatarUrl, isBot: false, alive: true // Uses chosen username
   });
   enterLobby(code);
 });
@@ -135,12 +147,12 @@ function enterLobby(code) {
     const data = snapshot.val();
     if (!data) { window.location.reload(); return; }
 
-    // SAFETY CHECK
+    // SAFETY CHECK: Get all players
     const players = data.players || {};
     const playerList = Object.keys(players).map(id => ({ id, ...players[id] }));
     isHost = (data.host === myUid);
 
-    // Update Lobby UI
+    // Update Lobby UI (Displays everyone in the lobby)
     lobbyPlayerList.innerHTML = playerList.map(p => `
       <div class="player-card">
         <img src="${p.avatar}" alt="${p.name}" />
@@ -177,8 +189,9 @@ function enterLobby(code) {
 // --- CHAT ---
 chatSendBtn.addEventListener('click', async () => {
   const text = chatInput.value.trim();
-  if (!text || !currentLobbyCode) return;
-  await push(ref(db, `lobbies/${currentLobbyCode}/chat`), { sender: 'Player', text, timestamp: Date.now() });
+  if (!text || !currentLobbyCode || !myUsername) return;
+  // Uses chosen username for chat
+  await push(ref(db, `lobbies/${currentLobbyCode}/chat`), { sender: myUsername, text, timestamp: Date.now() });
   chatInput.value = '';
 });
 chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') chatSendBtn.click(); });
@@ -189,7 +202,6 @@ startGameBtn.addEventListener('click', async () => {
   const snapshot = await get(currentLobbyRef);
   const data = snapshot.val();
   
-  // SAFETY CHECK for crash
   if (!data || !data.players) return alert("Lobby data not found.");
 
   const playersObj = data.players;
@@ -199,14 +211,14 @@ startGameBtn.addEventListener('click', async () => {
   if (humanCount + botCount > 6) return alert("Max players is 6!");
   if (humanCount + botCount < 2) return alert("Need at least 2 players (including bots)!");
 
-  // Add Bots (FIXED BOT ID LOGIC)
   const updates = {};
   const activePlayerIds = Object.keys(playersObj); // Start with existing humans
 
+  // Add Bots
   for (let i = 0; i < botCount; i++) {
     const botId = 'bot_' + Date.now() + '_' + i;
     updates[`players/${botId}`] = { name: `Bot ${i+1}`, avatar: 'https://cdn-icons-png.flaticon.com/512/616/616430.png', isBot: true, alive: true };
-    activePlayerIds.push(botId); // Add bot to active list properly
+    activePlayerIds.push(botId);
   }
   
   updates['status'] = 'playing';
@@ -214,7 +226,6 @@ startGameBtn.addEventListener('click', async () => {
 
   await update(currentLobbyRef, updates);
   
-  // Start the host loop
   if (isHost) runHostGameLoop();
 });
 
@@ -254,8 +265,8 @@ async function runHostGameLoop() {
         
         // Next Turn
         step();
-      }, 3000); // How long the elimination image shows
-    }, 2000); // How long the spin takes
+      }, 3000);
+    }, 2000);
   };
 
   step();
@@ -298,7 +309,6 @@ backToLobbyBtn.addEventListener('click', async () => {
   
   await update(currentLobbyRef, { status: 'waiting', game: null });
   
-  // Reset alive status safely
   const snapshot = await get(ref(db, `lobbies/${currentLobbyCode}/players`));
   if (snapshot.exists()) {
       const updates = {};
