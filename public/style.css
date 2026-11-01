@@ -9,112 +9,179 @@ body {
   margin: 0;
   padding: 20px;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
-#room-code-display { font-size: 2em; letter-spacing: 6px; color: #ff1a1a; font-weight: bold; }
+#room-code-display {
+  font-size: 2em;
+  letter-spacing: 6px;
+  color: #ff1a1a;
+  font-weight: bold;
+}
 
-/* --- THE ROULETTE TABLE ANIMATION --- */
+/* =========================================
+   LOBBY LIST (Standard Flexbox - No overlapping)
+   ========================================= */
+#lobby-player-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+  margin: 30px auto;
+  max-width: 800px;
+}
+
+#lobby-player-list .player-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 15px;
+  border: 2px solid #444;
+  border-radius: 12px;
+  background: #16213e;
+  width: 100px;
+  transition: all 0.2s;
+}
+
+#lobby-player-list .player-card img {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 8px;
+  border: 3px solid #444;
+}
+
+#lobby-player-list .player-card span {
+  font-size: 0.9em;
+  font-weight: bold;
+}
+
+/* =========================================
+   THE ROULETTE TABLE & GAME SCREEN
+   ========================================= */
+#game-table {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 20px;
+}
+
 #roulette-table {
   position: relative;
-  width: 400px;
-  height: 400px;
+  width: 450px;
+  height: 450px;
   margin: 20px auto;
-  background: radial-gradient(circle, #2a2a4a 0%, #0f0f1a 70%);
-  border: 6px solid #ff1a1a;
+  background: radial-gradient(circle, #2a2a4a 0%, #0f0f1a 60%, #000 100%);
+  border: 8px solid #ff1a1a;
   border-radius: 50%;
-  box-shadow: 0 0 40px rgba(255, 26, 26, 0.4), inset 0 0 30px rgba(0,0,0,0.9);
+  box-shadow: 0 0 50px rgba(255, 26, 26, 0.3), inset 0 0 40px rgba(0,0,0,0.9);
+  overflow: hidden; /* Keeps the sucked-in avatar from escaping */
 }
 
-/* The center spinner */
+/* The Center Hole */
 #table-center {
   position: absolute;
   top: 50%; left: 50%;
-  width: 60px; height: 60px;
-  background: #ff1a1a;
+  width: 80px; height: 80px;
+  background: #000;
+  border: 3px solid #ff1a1a;
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 20px #ff1a1a, inset 0 0 10px #000;
+  box-shadow: inset 0 0 20px #ff1a1a, 0 0 20px rgba(255, 26, 26, 0.6);
   z-index: 2;
-  transition: all 0.3s;
 }
 
-/* When it's someone's turn, spin the center */
-#roulette-table.spinning #table-center {
-  animation: rouletteSpin 0.5s linear infinite;
-  background: #f5c542;
-  box-shadow: 0 0 40px #f5c542;
-}
-
-@keyframes rouletteSpin {
-  0% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
-  50% { transform: translate(-50%, -50%) rotate(180deg) scale(1.2); }
-  100% { transform: translate(-50%, -50%) rotate(360deg) scale(1); }
-}
-
-/* The Players sitting at the table */
+/* The container that holds the players in a circle */
 #players-container {
   position: absolute;
   top: 0; left: 0; width: 100%; height: 100%;
   z-index: 5;
 }
 
-.player-card {
+/* The Game Player Cards (Absolute positioning for the circle) */
+#players-container .player-card {
   position: absolute;
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 80px;
+  width: 90px;
   transform: translate(-50%, -50%); /* Centers the card exactly on its coordinate */
-  transition: all 0.5s ease;
+  transition: all 0.3s ease;
 }
 
-.player-card img {
-  width: 70px; height: 70px;
+#players-container .player-card img {
+  width: 75px; height: 75px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid #444;
+  border: 4px solid #444;
   background: #000;
   transition: all 0.3s;
 }
 
-.player-card span {
-  font-size: 0.8em;
+#players-container .player-card span {
+  font-size: 0.85em;
   margin-top: 5px;
   background: rgba(0,0,0,0.8);
   padding: 2px 8px;
   border-radius: 10px;
+  white-space: nowrap;
 }
 
-/* Active Turn */
-.player-card.active img { border-color: #f5c542; box-shadow: 0 0 20px #f5c542; transform: scale(1.1); }
+/* Active Turn Highlight */
+#players-container .player-card.active img { 
+  border-color: #f5c542; 
+  box-shadow: 0 0 25px #f5c542; 
+  transform: scale(1.15); 
+}
 
-/* Eliminated (Greyed out) */
-.player-card.eliminated { opacity: 0.3; filter: grayscale(1); }
+/* Eliminated (Greyed out, pushed slightly back) */
+#players-container .player-card.eliminated { 
+  opacity: 0.2; 
+  filter: grayscale(1); 
+}
 
-/* Being Taken (Sucked into the center) */
-.player-card.being-taken {
-  animation: suckIn 1s forwards;
+/* =========================================
+   THE "TAKING" ANIMATION
+   ========================================= */
+#players-container .player-card.being-taken {
+  animation: suckIntoCenter 1.5s cubic-bezier(0.5, 0, 1, 0.5) forwards;
   z-index: 10;
+  pointer-events: none;
 }
 
-@keyframes suckIn {
-  0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+@keyframes suckIntoCenter {
+  0% { 
+    opacity: 1; 
+    /* Start at its calculated position */
+    transform: translate(-50%, -50%) scale(1) rotate(0deg); 
+  }
+  50% {
+    /* Pull it towards the center, shake a bit */
+    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(0.8) rotate(180deg);
+    filter: blur(2px) brightness(1.5);
+  }
+  100% { 
+    /* Destination is the exact center of the table */
+    top: 50% !important; 
+    left: 50% !important; 
+    opacity: 0; 
+    transform: translate(-50%, -50%) scale(0) rotate(720deg); 
+    filter: blur(10px);
+  }
 }
 
-/* UI Overlays */
+/* Overlays & Chat */
 .overlay {
-  position: fixed;
-  top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0, 0, 0, 0.92);
-  display: flex; flex-direction: column;
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.92); display: flex; flex-direction: column;
   justify-content: center; align-items: center; z-index: 100;
 }
 .overlay img { max-width: 300px; margin-bottom: 20px; }
 .overlay h1 { color: #f5c542; font-size: 3em; }
 
-/* Chat & Lobby */
-#lobby-player-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin: 30px 0; }
 #chat-container { max-width: 600px; margin: 30px auto; background: #16213e; border-radius: 12px; padding: 15px; }
 #chat-messages { height: 150px; overflow-y: auto; border: 1px solid #444; padding: 10px; margin-bottom: 10px; text-align: left; border-radius: 8px; }
 .chat-input-row { display: flex; gap: 10px; }
