@@ -1,360 +1,282 @@
-import {
-  insertCoin,
-  myPlayer,
-  getRoomCode,
-  isHost,
-  onPlayerJoin,
-  addBot,
-  getState,
-  setState,
-  waitForState,
-  resetStates,
-} from 'playroomkit';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, set, push, onValue, update, remove, onDisconnect, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-// ---------- DOM ELEMENTS ----------
+// Your Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyAhpEonUevmgZnV1Dq-c_JqAq80gH3sDcg",
+  authDomain: "roulette-c19e5.firebaseapp.com",
+  databaseURL: "https://roulette-c19e5-default-rtdb.firebaseio.com", 
+  projectId: "roulette-c19e5",
+  storageBucket: "roulette-c19e5.firebasestorage.app",
+  messagingSenderId: "457070238408",
+  appId: "1:457070238408:web:f08080f416ef008dfb63fd",
+  measurementId: "G-WJRTGBTRYE"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
+
+// DOM Elements
 const menuScreen = document.getElementById('menu-screen');
 const lobbyScreen = document.getElementById('lobby-screen');
 const gameScreen = document.getElementById('game-screen');
-
-const avatarInput = document.getElementById('avatar-input');
-const avatarPreview = document.getElementById('avatar-preview');
-const uploadBtn = document.getElementById('upload-btn');
-const enterLobbyBtn = document.getElementById('enter-lobby-btn');
-const musicToggle = document.getElementById('music-toggle');
-const menuMusic = document.getElementById('menu-music');
-
+const joinCodeInput = document.getElementById('join-code-input');
+const joinBtn = document.getElementById('join-btn');
+const hostBtn = document.getElementById('host-btn');
 const roomCodeDisplay = document.getElementById('room-code-display');
 const lobbyPlayerList = document.getElementById('lobby-player-list');
 const hostControls = document.getElementById('host-controls');
 const guestWaiting = document.getElementById('guest-waiting');
 const botCountInput = document.getElementById('bot-count');
 const startGameBtn = document.getElementById('start-game-btn');
-
 const playersContainer = document.getElementById('players-container');
 const turnIndicator = document.getElementById('turn-indicator');
 const eliminationOverlay = document.getElementById('elimination-overlay');
 const winnerOverlay = document.getElementById('winner-overlay');
+const winnerText = document.getElementById('winner-text');
 const backToLobbyBtn = document.getElementById('back-to-lobby-btn');
-
 const chatMessages = document.getElementById('chat-messages');
 const chatInput = document.getElementById('chat-input');
 const chatSendBtn = document.getElementById('chat-send-btn');
 
-let myAvatarUrl = '';
+let myUid = null;
+let myAvatarUrl = ''; 
+let currentLobbyCode = null;
+let currentLobbyRef = null;
+let isHost = false;
+let hostGameLoopInterval = null;
 
-// ---------- 1. MENU: AVATAR UPLOAD ----------
-avatarInput.addEventListener('change', () => {
-  const file = avatarInput.files[0];
-  if (file) {
-    avatarPreview.src = URL.createObjectURL(file);
-    avatarPreview.style.display = 'block';
-  }
+// --- AUTHENTICATION ---
+signInAnonymously(auth).catch((error) => console.error("Auth error:", error));
+onAuthStateChanged(auth, (user) => {
+  if (user) myUid = user.uid;
 });
 
-uploadBtn.addEventListener('click', async () => {
-  const file = avatarInput.files[0];
-  if (!file) return alert('Please select an image first.');
-
-  const formData = new FormData();
-  formData.append('avatar', file);
-
-  try {
-    const res = await fetch('/api/upload-avatar', { method: 'POST', body: formData });
-    const data = await res.json();
-    if (data.url) {
-      myAvatarUrl = data.url;
-      enterLobbyBtn.disabled = false;
-      uploadBtn.textContent = 'Uploaded ✓';
-      uploadBtn.disabled = true;
-    } else {
-      alert('Upload failed. Check console.');
+// --- CHECK FOR AVATAR FROM INDEX.HTML ---
+const checkAvatar = () => {
+    myAvatarUrl = window.myAvatarUrl || '';
+    if (!myAvatarUrl) {
+        alert("Please upload and confirm an avatar first!");
+        return false;
     }
-  } catch (err) {
-    console.error(err);
-    alert('Upload error.');
-  }
-});
+    return true;
+};
 
-// ---------- 2. MENU: MUSIC ----------
-musicToggle.addEventListener('click', () => {
-  if (menuMusic.paused) {
-    menuMusic.play();
-    musicToggle.textContent = '🔇 Pause Music';
-  } else {
-    menuMusic.pause();
-    musicToggle.textContent = '🔊 Play Music';
-  }
-});
-
-// ---------- 3. ENTER LOBBY (HOST OR JOIN) ----------
-enterLobbyBtn.addEventListener('click', async () => {
-  if (!myAvatarUrl) return alert('Upload an avatar first.');
-
-  // Check URL for a room code to join. Example: site.com/?r=ABCD
-  const urlParams = new URLSearchParams(window.location.search);
-  const joinCode = urlParams.get('r');
-
-  try {
-    if (joinCode) {
-      // JOINING AN EXISTING ROOM
-      await insertCoin({
-        roomCode: joinCode,
-        skipLobby: true,
-        maxPlayersPerRoom: 6,
-      });
-    } else {
-      // CREATING A NEW ROOM (HOST)
-      await insertCoin({
-        skipLobby: true,
-        maxPlayersPerRoom: 6,
-      });
+// --- LOBBY LOGIC ---
+hostBtn.addEventListener('click', () => {
+  if (!checkAvatar()) return;
+  
+  const code = generateRoomCode();
+  const lobbyRef = ref(db, 'lobbies/' + code);
+  
+  set(lobbyRef, {
+    host: myUid,
+    status: 'waiting',
+    players: {
+      [myUid]: { name: 'Host', avatar: myAvatarUrl, isBot: false, alive: true }
     }
-  } catch (err) {
-    console.error(err);
-    alert(err.message === 'ROOM_LIMIT_EXCEEDED' ? 'Room is full!' : 'Failed to join room.');
-    return;
-  }
+  }).then(() => enterLobby(code));
+});
 
-  // Once insertCoin resolves, we are in a room.
-  // Store our avatar in our player state so others can see it.
-  myPlayer().setState('avatar', myAvatarUrl, true);
+joinBtn.addEventListener('click', async () => {
+  if (!checkAvatar()) return;
+  
+  const code = joinCodeInput.value.trim().toUpperCase();
+  if (code.length !== 4) return alert("Invalid code.");
+  
+  const snapshot = await get(ref(db, 'lobbies/' + code));
+  if (!snapshot.exists()) return alert("Lobby not found!");
+  
+  const lobby = snapshot.val();
+  const playerCount = Object.keys(lobby.players || {}).length;
+  if (playerCount >= 6) return alert("Lobby is full!");
 
-  // Switch to Lobby Screen
+  await update(ref(db, `lobbies/${code}/players/${myUid}`), {
+    name: 'Player', avatar: myAvatarUrl, isBot: false, alive: true
+  });
+  enterLobby(code);
+});
+
+function enterLobby(code) {
+  currentLobbyCode = code;
+  currentLobbyRef = ref(db, 'lobbies/' + code);
   menuScreen.classList.remove('active');
   lobbyScreen.classList.add('active');
-  menuMusic.pause();
+  roomCodeDisplay.textContent = code;
 
-  // Setup the lobby UI
-  setupLobby();
-});
+  // Remove player from DB if they close tab
+  onDisconnect(ref(db, `lobbies/${code}/players/${myUid}`)).remove();
 
-// ---------- 4. LOBBY SETUP ----------
-async function setupLobby() {
-  const roomCode = getRoomCode();
-  roomCodeDisplay.textContent = roomCode;
+  // Listen to lobby updates
+  onValue(currentLobbyRef, (snapshot) => {
+    const data = snapshot.val();
+    if (!data) { window.location.reload(); return; }
 
-  // Show host controls if we are the host
-  if (await isHost()) {
-    hostControls.style.display = 'block';
-    guestWaiting.style.display = 'none';
-  } else {
-    hostControls.style.display = 'none';
-    guestWaiting.style.display = 'block';
-  }
+    const players = data.players || {};
+    const playerList = Object.keys(players).map(id => ({ id, ...players[id] }));
+    isHost = (data.host === myUid);
 
-  // Function to refresh the lobby player list
-  const refreshLobbyList = async () => {
-    const players = getState('players') || [];
-    lobbyPlayerList.innerHTML = players.map(p => `
+    // Update Lobby UI
+    lobbyPlayerList.innerHTML = playerList.map(p => `
       <div class="player-card">
-        <img src="${p.avatar || 'https://via.placeholder.com/80'}" alt="${p.name}" />
+        <img src="${p.avatar}" alt="${p.name}" />
         <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
       </div>
     `).join('');
+
+    hostControls.style.display = isHost ? 'block' : 'none';
+    guestWaiting.style.display = isHost ? 'none' : 'block';
+
+    // Handle Game State Changes
+    if (data.status === 'playing' || data.status === 'finished') {
+      lobbyScreen.classList.remove('active');
+      gameScreen.classList.add('active');
+      updateGameUI(data, playerList);
+    } else if (data.status === 'waiting') {
+      gameScreen.classList.remove('active');
+      lobbyScreen.classList.add('active');
+      winnerOverlay.style.display = 'none';
+      eliminationOverlay.style.display = 'none';
+    }
+  });
+
+  // Listen to chat
+  onValue(ref(db, `lobbies/${code}/chat`), (snapshot) => {
+    const msgs = snapshot.val();
+    if (msgs) {
+      chatMessages.innerHTML = Object.values(msgs).map(m => `<p><strong>${m.sender}:</strong> ${m.text}</p>`).join('');
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+  });
+}
+
+// --- CHAT ---
+chatSendBtn.addEventListener('click', async () => {
+  const text = chatInput.value.trim();
+  if (!text || !currentLobbyCode) return;
+  await push(ref(db, `lobbies/${currentLobbyCode}/chat`), { sender: 'Player', text, timestamp: Date.now() });
+  chatInput.value = '';
+});
+chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') chatSendBtn.click(); });
+
+// --- HOST: START GAME & BOTS ---
+startGameBtn.addEventListener('click', async () => {
+  const snapshot = await get(currentLobbyRef);
+  const data = snapshot.val();
+  const humanCount = Object.keys(data.players).filter(id => !data.players[id].isBot).length;
+  const botCount = parseInt(botCountInput.value, 10) || 0;
+
+  if (humanCount + botCount > 6) return alert("Max players is 6!");
+  if (humanCount + botCount < 2) return alert("Need at least 2 players (including bots)!");
+
+  // Add Bots
+  const updates = {};
+  for (let i = 0; i < botCount; i++) {
+    const botId = 'bot_' + Date.now() + '_' + i;
+    updates[`players/${botId}`] = { name: `Bot ${i+1}`, avatar: 'https://cdn-icons-png.flaticon.com/512/616/616430.png', isBot: true, alive: true };
+  }
+  
+  const playerIds = [...Object.keys(data.players), ...Object.keys(updates).map(k => k.split('/')[1])];
+  updates['status'] = 'playing';
+  updates['game'] = { activePlayers: playerIds, currentTurn: null, eliminated: null, winner: null };
+
+  await update(currentLobbyRef, updates);
+  
+  // Start the host loop
+  if (isHost) runHostGameLoop();
+});
+
+// --- HOST: GAME LOOP ---
+async function runHostGameLoop() {
+  if (hostGameLoopInterval) clearInterval(hostGameLoopInterval);
+  
+  const step = async () => {
+    const snapshot = await get(currentLobbyRef);
+    const data = snapshot.val();
+    if (!data || data.status !== 'playing' || !data.game) return;
+
+    let active = data.game.activePlayers || [];
+    if (active.length <= 1) {
+      // Game Over
+      await update(ref(db, `lobbies/${currentLobbyCode}`), {
+        status: 'finished',
+        'game/winner': active[0] || null
+      });
+      return;
+    }
+
+    // 1. Spin
+    const spinPick = active[Math.floor(Math.random() * active.length)];
+    await update(ref(db, `lobbies/${currentLobbyCode}/game`), { currentTurn: spinPick, eliminated: null });
+    
+    setTimeout(async () => {
+      // 2. Eliminate
+      const eliminatedId = active[Math.floor(Math.random() * active.length)];
+      await update(ref(db, `lobbies/${currentLobbyCode}/game`), { eliminated: eliminatedId });
+      
+      setTimeout(async () => {
+        // 3. Remove player
+        active = active.filter(id => id !== eliminatedId);
+        await update(ref(db, `lobbies/${currentLobbyCode}/game`), { activePlayers: active, eliminated: null, currentTurn: null });
+        await update(ref(db, `lobbies/${currentLobbyCode}/players/${eliminatedId}`), { alive: false });
+        
+        // Next Turn
+        step();
+      }, 3000); // How long the elimination image shows
+    }, 2000); // How long the spin takes
   };
 
-  // When a player joins (including ourselves), update the player list in global state
-  // We'll maintain our own "players" array in global state for consistency.
-  onPlayerJoin(async (player) => {
-    const currentPlayers = getState('players') || [];
-    // Avoid duplicates
-    if (!currentPlayers.find(p => p.id === player.id)) {
-      const profile = player.getProfile();
-      // Wait for the player's avatar state (set right after insertCoin)
-      let avatar = 'https://via.placeholder.com/80';
-      try {
-        avatar = await waitForPlayerState(player, 'avatar');
-      } catch (e) { /* ignore */ }
-
-      currentPlayers.push({
-        id: player.id,
-        name: profile.name || 'Player',
-        avatar: avatar,
-        isBot: false,
-        alive: true,
-      });
-      await setState('players', currentPlayers);
-    }
-    refreshLobbyList();
-  });
-
-  // Also call refresh immediately in case players already exist
-  refreshLobbyList();
-
-  // Host: Start Game
-  startGameBtn.addEventListener('click', async () => {
-    const players = getState('players') || [];
-    const humanCount = players.filter(p => !p.isBot).length;
-    const botCount = parseInt(botCountInput.value, 10) || 0;
-
-    if (humanCount < 1) return alert('Need at least 1 human player to start.');
-    if (humanCount + botCount > 6) return alert(`Max players is 6. You have ${humanCount} humans. Max bots allowed: ${6 - humanCount}.`);
-
-    // Add bots
-    for (let i = 0; i < botCount; i++) {
-      await addBot(); // Playroom Kit adds the bot to the room
-      // Note: Playroom Kit bots don't have custom avatars, so we'll assign placeholder in our state
-    }
-
-    // After adding bots, update the global player list to include them
-    // Playroom's onPlayerJoin may not fire for bots in some SDK versions,
-    // so we manually rebuild the player list from the room.
-    // For simplicity, we'll fetch all players (humans + bots) from Playroom.
-    // Playroom SDK doesn't expose a direct "getAllPlayers" in vanilla JS easily,
-    // so we rely on our state + bots.
-    // Alternative: After adding bots, set a flag that triggers all clients to rebuild.
-    // Here, we'll just proceed; the host's local state has bots.
-    // (In a production version, you would use a more robust player sync.)
-
-    // Set initial game state
-    const allPlayers = getState('players') || [];
-    // Mark all as alive
-    allPlayers.forEach(p => p.alive = true);
-    await setState('players', allPlayers);
-    await setState('gameStatus', 'spinning');
-    await setState('activePlayerIds', allPlayers.map(p => p.id));
-    await setState('eliminated', null);
-    await setState('winner', null);
-
-    // Switch to game screen
-    lobbyScreen.classList.remove('active');
-    gameScreen.classList.add('active');
-
-    // Start the roulette loop (only on host)
-    if (await isHost()) {
-      runRoulette();
-    }
-  });
+  step();
 }
 
-// ---------- 5. ROULETTE LOOP (HOST ONLY) ----------
-async function runRoulette() {
-  let activeIds = getState('activePlayerIds') || [];
-
-  while (activeIds.length > 1) {
-    // Pick a random active player to "spin" on (for visual effect)
-    const spinPlayerId = activeIds[Math.floor(Math.random() * activeIds.length)];
-    await setState('currentTurn', spinPlayerId, true);
-
-    // Wait for dramatic effect
-    await new Promise(r => setTimeout(r, 2000));
-
-    // Choose the eliminated player
-    const eliminatedId = activeIds[Math.floor(Math.random() * activeIds.length)];
-    await setState('eliminated', eliminatedId, true);
-
-    // Wait for elimination animation
-    await new Promise(r => setTimeout(r, 3000));
-
-    // Remove the eliminated player from active list
-    activeIds = activeIds.filter(id => id !== eliminatedId);
-    await setState('activePlayerIds', activeIds, true);
-    await setState('eliminated', null);
-
-    // Also update the "alive" flag in the players list
-    const players = getState('players') || [];
-    const updated = players.map(p => ({
-      ...p,
-      alive: activeIds.includes(p.id),
-    }));
-    await setState('players', updated);
-
-    // Pause before next turn
-    await new Promise(r => setTimeout(r, 1000));
-  }
-
-  // Game Over
-  await setState('winner', activeIds[0], true);
-  await setState('gameStatus', 'finished', true);
-}
-
-// ---------- 6. REAL-TIME UI UPDATES (ALL CLIENTS) ----------
-// We use a polling loop for simplicity. For production, use waitForState.
-setInterval(async () => {
-  const gameStatus = getState('gameStatus');
-  if (gameStatus !== 'spinning' && gameStatus !== 'finished') return;
-
-  const players = getState('players') || [];
-  const activeIds = getState('activePlayerIds') || [];
-  const eliminatedId = getState('eliminated');
-  const currentTurnId = getState('currentTurn');
-  const winnerId = getState('winner');
-
-  // Render player cards
-  playersContainer.innerHTML = players.map(p => {
-    const isActive = activeIds.includes(p.id);
-    const isEliminated = !isActive && p.alive === false; // or use eliminated state
-    const isTurn = p.id === currentTurnId;
+// --- CLIENT: RENDER GAME UI ---
+function updateGameUI(data, playerList) {
+  const game = data.game || {};
+  
+  playersContainer.innerHTML = playerList.map(p => {
+    const isTurn = (p.id === game.currentTurn);
+    const isDead = !p.alive;
     return `
-      <div class="player-card ${isTurn ? 'active' : ''} ${isEliminated ? 'eliminated' : ''}">
-        <img src="${p.avatar || 'https://via.placeholder.com/80'}" alt="${p.name}" />
+      <div class="player-card ${isTurn ? 'active' : ''} ${isDead ? 'eliminated' : ''}">
+        <img src="${p.avatar}" alt="${p.name}" />
         <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
       </div>
     `;
   }).join('');
 
-  // Turn indicator
-  if (currentTurnId) {
-    const currentPlayer = players.find(p => p.id === currentTurnId);
-    turnIndicator.textContent = `It's ${currentPlayer ? currentPlayer.name : '...'}'s turn`;
-  }
-
-  // Elimination overlay
-  eliminationOverlay.style.display = eliminatedId ? 'flex' : 'none';
-
-  // Winner overlay
-  if (winnerId) {
-    const winner = players.find(p => p.id === winnerId);
-    if (winner) {
-      winnerOverlay.style.display = 'flex';
-      winnerOverlay.querySelector('h1').textContent =
-        `CONGRATULATIONS ${winner.name.toUpperCase()} U WON!`;
-    }
+  if (game.currentTurn) {
+    const p = playerList.find(x => x.id === game.currentTurn);
+    turnIndicator.textContent = `It's ${p ? p.name : '...'}'s turn`;
   } else {
-    winnerOverlay.style.display = 'none';
+    turnIndicator.textContent = "Spinning...";
   }
 
-  // Chat
-  const chat = getState('chat') || [];
-  chatMessages.innerHTML = chat.map(m => `<p><strong>${m.sender}:</strong> ${m.text}</p>`).join('');
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-}, 500);
+  eliminationOverlay.style.display = game.eliminated ? 'flex' : 'none';
 
-// ---------- 7. CHAT ----------
-chatSendBtn.addEventListener('click', sendChat);
-chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChat(); });
-
-async function sendChat() {
-  const text = chatInput.value.trim();
-  if (!text) return;
-
-  const player = myPlayer();
-  const newMessage = {
-    sender: player.getProfile().name || 'Player',
-    text: text,
-    timestamp: Date.now(),
-  };
-
-  const currentChat = getState('chat') || [];
-  await setState('chat', [...currentChat, newMessage]);
-  chatInput.value = '';
+  if (data.status === 'finished' && game.winner) {
+    const winnerPlayer = playerList.find(x => x.id === game.winner);
+    winnerOverlay.style.display = 'flex';
+    winnerText.textContent = `CONGRATULATIONS ${winnerPlayer ? winnerPlayer.name.toUpperCase() : ''} U WON!`;
+  }
 }
 
-// ---------- 8. BACK TO LOBBY ----------
+// --- RETURN TO LOBBY ---
 backToLobbyBtn.addEventListener('click', async () => {
-  winnerOverlay.style.display = 'none';
-  eliminationOverlay.style.display = 'none';
-
-  // Reset all game states
-  await resetStates(); // Resets global state to defaults (empty)
-  // Also reset local player alive flags if needed
-
-  // Switch back to lobby
-  gameScreen.classList.remove('active');
-  lobbyScreen.classList.add('active');
-
-  // Re-initialize lobby list (setupLobby already registered onPlayerJoin)
-  // The refreshLobbyList function is scoped inside setupLobby, so we'll just reload the page for simplicity.
-  // For a smoother experience, you can refactor setupLobby to be re-callable.
-  window.location.reload();
+  if (!isHost) return alert("Only the host can restart the game."); 
+  await update(currentLobbyRef, { status: 'waiting', game: null });
+  
+  // Reset alive status
+  const updates = {};
+  const snapshot = await get(ref(db, `lobbies/${currentLobbyCode}/players`));
+  snapshot.forEach(child => { updates[`players/${child.key}/alive`] = true; });
+  await update(currentLobbyRef, updates);
 });
+
+function generateRoomCode() {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let code = '';
+  for (let i = 0; i < 4; i++) code += letters.charAt(Math.floor(Math.random() * letters.length));
+  return code;
+}

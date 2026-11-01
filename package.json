@@ -1,8 +1,6 @@
 {
   "name": "russian-roulette",
   "version": "1.0.0",
-  "description": "^C",
-  "type": "commonjs",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -10,7 +8,6 @@
   "dependencies": {
     "@vercel/blob": "^0.27.0",
     "express": "^4.21.2",
-    "multer": "^1.4.5-lts.2",
-    "playroomkit": "^0.0.87"
+    "multer": "^1.4.5-lts.2"
   }
 }

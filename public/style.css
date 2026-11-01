@@ -1,6 +1,10 @@
+/* Base Game Screen Styles */
+.screen { display: none; }
+.screen.active { display: block; }
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: #1a1a2e;
+  background-color: #1a1a2e;
   color: #eee;
   text-align: center;
   margin: 0;
@@ -8,41 +12,14 @@ body {
   min-height: 100vh;
 }
 
-.screen { display: none; }
-.screen.active { display: block; }
-
-button {
-  padding: 10px 20px;
-  margin: 8px;
-  cursor: pointer;
-  background: #e94560;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 16px;
-}
-button:disabled { background: #555; cursor: not-allowed; }
-
-#avatar-preview {
-  display: none;
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 3px solid #e94560;
-  margin: 10px auto;
-}
-
-.avatar-section { margin: 20px 0; }
-.avatar-section input { display: block; margin: 10px auto; }
-
 #room-code-display {
   font-size: 2em;
   letter-spacing: 6px;
-  color: #e94560;
+  color: #ff1a1a;
+  font-weight: bold;
 }
 
-#players-container {
+#lobby-player-list, #players-container {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -61,10 +38,8 @@ button:disabled { background: #555; cursor: not-allowed; }
   min-width: 120px;
   transition: all 0.2s;
 }
-.player-card.active {
-  border-color: #f5c542;
-  box-shadow: 0 0 20px #f5c542;
-}
+
+.player-card.active { border-color: #f5c542; box-shadow: 0 0 20px #f5c542; }
 .player-card.eliminated { opacity: 0.3; filter: grayscale(1); }
 
 .player-card img {
@@ -85,6 +60,7 @@ button:disabled { background: #555; cursor: not-allowed; }
   align-items: center;
   z-index: 100;
 }
+
 .overlay img { max-width: 300px; margin-bottom: 20px; }
 .overlay h1 { color: #f5c542; font-size: 3em; }
 
@@ -95,6 +71,7 @@ button:disabled { background: #555; cursor: not-allowed; }
   border-radius: 12px;
   padding: 15px;
 }
+
 #chat-messages {
   height: 150px;
   overflow-y: auto;
@@ -104,13 +81,6 @@ button:disabled { background: #555; cursor: not-allowed; }
   text-align: left;
   border-radius: 8px;
 }
+
 .chat-input-row { display: flex; gap: 10px; }
 #chat-input { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #444; background: #0f3460; color: white; }
-
-#lobby-player-list {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 15px;
-  margin: 20px 0;
-}

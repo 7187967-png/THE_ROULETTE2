@@ -4,20 +4,15 @@ const multer = require('multer');
 const path = require('path');
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage() }); // Keep file in memory
+const upload = multer({ storage: multer.memoryStorage() });
 
-// Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// API route for avatar uploads
 app.post('/api/upload-avatar', upload.single('avatar'), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded.' });
-    }
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
 
-    // Upload to Vercel Blob. Requires BLOB_READ_WRITE_TOKEN env var.
-    const blob = await put(`avatars/${Date.now()}-${req.file.originalname}`, req.file.buffer, {
+    const blob = await put(`avatars/${Date.now()}-avatar.jpg`, req.file.buffer, {
       access: 'public',
       token: process.env.BLOB_READ_WRITE_TOKEN,
     });
@@ -29,11 +24,9 @@ app.post('/api/upload-avatar', upload.single('avatar'), async (req, res) => {
   }
 });
 
-// For local development
 const PORT = process.env.PORT || 3000;
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
 }
 
-// Export for Vercel
 module.exports = app;
