@@ -5,216 +5,86 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>THE ROULETTE 2</title>
   
-  <!-- WEB IMAGE (FAVICON) -->
   <link rel="icon" type="image/png" href="https://imagepaste.org/i/b7bszach.png">
-
-  <!-- Keep the game screen styles -->
   <link rel="stylesheet" href="style.css" />
   
-  <!-- Cropper.js for the Avatar Editor -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
   <style>
-    /* FIXED BACKGROUND TO FILL SCREEN */
+    /* Menu specific styling */
     html, body {
-      margin: 0;
-      padding: 0;
-      min-height: 100vh;
-      width: 100%;
+      margin: 0; padding: 0; min-height: 100vh; width: 100%;
       background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.9)), url('https://imagepaste.org/i/b7bszach.png') center/cover no-repeat fixed;
       background-color: #050505;
       font-family: 'Inter', sans-serif;
       overflow-x: hidden;
     }
 
-    /* Main Menu Container */
     .menu-container {
-      max-width: 450px;
-      margin: 50px auto;
-      background: rgba(10, 10, 12, 0.85);
-      backdrop-filter: blur(8px);
-      border: 1px solid #ff1a1a;
-      border-top: 4px solid #ff1a1a;
-      border-radius: 8px;
+      max-width: 450px; margin: 50px auto;
+      background: rgba(10, 10, 12, 0.85); backdrop-filter: blur(8px);
+      border: 1px solid #ff1a1a; border-top: 4px solid #ff1a1a; border-radius: 8px;
       padding: 40px 30px;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 30px rgba(255, 26, 26, 0.2);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      display: flex; flex-direction: column; align-items: center;
     }
 
-    /* Title */
     .game-title {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 4em;
-      color: #ff1a1a;
-      text-transform: uppercase;
-      letter-spacing: 4px;
-      margin-top: 0;
-      margin-bottom: 30px;
-      text-align: center;
-      line-height: 0.9;
+      font-family: 'Bebas Neue', sans-serif; font-size: 4em; color: #ff1a1a;
+      text-transform: uppercase; letter-spacing: 4px; margin-top: 0; margin-bottom: 30px;
+      text-align: center; line-height: 0.9;
       text-shadow: 3px 3px 0px #000, 0 0 20px rgba(255, 26, 26, 0.6);
     }
 
-    /* Avatar Upload Area */
-    .avatar-section {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-bottom: 25px;
-    }
+    .avatar-section { display: flex; flex-direction: column; align-items: center; margin-bottom: 25px; }
     .avatar-upload-label {
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      border: 2px dashed #555;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      cursor: pointer;
-      overflow: hidden;
-      transition: all 0.3s;
-      background: #000;
-      position: relative;
+      width: 120px; height: 120px; border-radius: 50%; border: 2px dashed #555;
+      display: flex; justify-content: center; align-items: center; cursor: pointer;
+      overflow: hidden; transition: all 0.3s; background: #000; position: relative;
     }
-    .avatar-upload-label:hover {
-      border-color: #ff1a1a;
-      box-shadow: 0 0 15px rgba(255, 26, 26, 0.5);
-    }
-    .avatar-upload-label img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: none;
-    }
-    .avatar-placeholder {
-      color: #888;
-      font-size: 0.8em;
-      text-align: center;
-      pointer-events: none;
-    }
+    .avatar-upload-label:hover { border-color: #ff1a1a; box-shadow: 0 0 15px rgba(255, 26, 26, 0.5); }
+    .avatar-upload-label img { width: 100%; height: 100%; object-fit: cover; display: none; }
+    .avatar-placeholder { color: #888; font-size: 0.8em; text-align: center; pointer-events: none; }
 
-    /* Inputs & Buttons */
-    .divider {
-      width: 100%;
-      text-align: center;
-      border-bottom: 1px solid #333;
-      line-height: 0.1em;
-      margin: 20px 0 30px;
-    }
+    .divider { width: 100%; text-align: center; border-bottom: 1px solid #333; line-height: 0.1em; margin: 20px 0 30px; }
     .divider span { background: #111; padding: 0 10px; color: #777; font-size: 0.8em; }
     
-    /* NEW: Username Input Style */
-    .name-input {
-      width: 100%;
-      padding: 15px;
-      border-radius: 4px;
-      border: 1px solid #444;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      font-size: 1.2em;
-      text-align: center;
-      box-sizing: border-box;
-      transition: 0.3s;
-      margin-bottom: 15px;
+    .name-input, .code-input {
+      width: 100%; padding: 15px; border-radius: 4px; border: 1px solid #444;
+      background: rgba(0,0,0,0.6); color: #fff; box-sizing: border-box; transition: 0.3s;
     }
-    .name-input:focus {
-      outline: none;
-      border-color: #ff1a1a;
-      box-shadow: 0 0 10px rgba(255, 26, 26, 0.4);
-    }
-    .name-input::placeholder { color: #666; font-size: 0.8em; letter-spacing: 1px; }
-
-    .code-input {
-      width: 100%;
-      padding: 15px;
-      border-radius: 4px;
-      border: 1px solid #444;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      font-size: 1.5em;
-      font-family: monospace;
-      text-align: center;
-      letter-spacing: 8px;
-      text-transform: uppercase;
-      box-sizing: border-box;
-      transition: 0.3s;
-    }
-    .code-input:focus {
-      outline: none;
-      border-color: #ff1a1a;
-      box-shadow: 0 0 10px rgba(255, 26, 26, 0.4);
-    }
-    .code-input::placeholder { font-size: 0.5em; letter-spacing: 2px; color: #666; }
+    .name-input { font-size: 1.2em; text-align: center; margin-bottom: 15px; }
+    .code-input { font-size: 1.5em; font-family: monospace; text-align: center; letter-spacing: 8px; text-transform: uppercase; }
+    .name-input:focus, .code-input:focus { outline: none; border-color: #ff1a1a; box-shadow: 0 0 10px rgba(255, 26, 26, 0.4); }
 
     .btn {
-      width: 100%;
-      padding: 15px;
-      border-radius: 4px;
-      border: none;
-      font-size: 1.1em;
-      font-weight: 700;
-      cursor: pointer;
-      text-transform: uppercase;
-      transition: all 0.2s;
-      box-sizing: border-box;
+      width: 100%; padding: 15px; border-radius: 4px; border: none; font-size: 1.1em;
+      font-weight: 700; cursor: pointer; text-transform: uppercase; transition: all 0.2s; box-sizing: border-box;
     }
     .btn:disabled { background: #222; color: #555; cursor: not-allowed; }
-    
     .btn-upload { background: #333; color: #fff; margin-top: 10px; width: auto; padding: 8px 20px; font-size: 0.8em; }
     .btn-upload:hover:not(:disabled) { background: #555; }
-    
     .btn-join { background: #ff1a1a; color: #000; margin-top: 10px; }
     .btn-join:hover:not(:disabled) { background: #ff4d4d; transform: scale(1.02); }
-
     .btn-host { background: #fff; color: #000; margin-top: 20px; }
     .btn-host:hover:not(:disabled) { background: #ccc; transform: scale(1.02); }
 
-    /* Avatar Editor Modal */
     #cropper-modal {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.95);
-      z-index: 1000;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.95); z-index: 1000; flex-direction: column; align-items: center; justify-content: center;
     }
-    .cropper-container-wrapper {
-      width: 90vw;
-      max-width: 500px;
-      height: 60vh;
-      background: #111;
-      border: 1px solid #333;
-    }
-    .cropper-controls {
-      margin-top: 20px;
-      display: flex;
-      gap: 15px;
-    }
-    .cropper-controls button {
-      padding: 10px 20px;
-      font-size: 1em;
-      cursor: pointer;
-      border: none;
-      border-radius: 4px;
-      font-weight: bold;
-    }
+    .cropper-container-wrapper { width: 90vw; max-width: 500px; height: 60vh; background: #111; border: 1px solid #333; }
+    .cropper-controls { margin-top: 20px; display: flex; gap: 15px; }
+    .cropper-controls button { padding: 10px 20px; font-size: 1em; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; }
     #btn-save-crop { background: #ff1a1a; color: #000; }
     #btn-cancel-crop { background: #333; color: #fff; }
   </style>
 </head>
 <body>
 
-  <!-- MENU SCREEN -->
   <div id="menu-screen" class="screen active">
     <div class="menu-container">
       <h1 class="game-title">THE ROULETTE<br><span style="font-size: 1.5em;">2</span></h1>
@@ -224,12 +94,10 @@
           <img id="avatar-preview" src="" alt="Preview" />
           <div class="avatar-placeholder" id="avatar-placeholder">Select<br>Image</div>
         </label>
-        <!-- HIDDEN FILE INPUT -->
         <input type="file" id="avatar-input" accept="image/*" style="display: none !important;" />
         <button id="upload-btn" class="btn btn-upload" disabled>Upload Avatar</button>
       </div>
 
-      <!-- NEW USERNAME INPUT -->
       <input type="text" id="username-input" placeholder="ENTER YOUR NAME" maxlength="12" class="name-input" />
       
       <div class="divider"><span>OR</span></div>
@@ -241,7 +109,6 @@
     </div>
   </div>
 
-  <!-- AVATAR EDITOR MODAL -->
   <div id="cropper-modal">
     <div class="cropper-container-wrapper">
       <img id="image-to-crop" src="" alt="Crop me">
@@ -252,7 +119,6 @@
     </div>
   </div>
 
-  <!-- LOBBY SCREEN -->
   <div id="lobby-screen" class="screen">
     <h1>Lobby</h1>
     <p>Room Code: <strong id="room-code-display"></strong></p>
@@ -266,11 +132,16 @@
     </div>
   </div>
 
-  <!-- GAME SCREEN -->
+  <!-- NEW GAME SCREEN WITH TABLE ANIMATION -->
   <div id="game-screen" class="screen">
     <div id="game-table">
-      <div id="players-container"></div>
-      <h2 id="turn-indicator">Waiting...</h2>
+      <h2 id="turn-indicator" style="position: relative; z-index: 10; margin-bottom: 20px;">Waiting...</h2>
+      
+      <!-- The Roulette Table -->
+      <div id="roulette-table">
+        <div id="table-center"></div> <!-- Spinning visual -->
+        <div id="players-container"></div> <!-- Players sit here -->
+      </div>
     </div>
 
     <div id="elimination-overlay" class="overlay" style="display:none;">
@@ -291,26 +162,8 @@
     </div>
   </div>
 
-  <!-- OLD MUSIC SETUP -->
-  <audio id="menu-music" loop autoplay>
-    <source src="https://www.image2url.com/r2/default/audio/1793564169307-d6bfda4b-1820-4f32-9a8e-696ead87d892.mp3" type="audio/mpeg" />
-  </audio>
-
   <script>
-    // --- OLD MUSIC LOGIC ---
-    const audioEl = document.getElementById('menu-music');
-
-    // Start audio on first click
-    document.addEventListener('click', () => {
-      if (audioEl.paused) audioEl.play().catch(() => {});
-    });
-
-    // Force it to never stay paused (even if game.js tries to pause it)
-    audioEl.addEventListener('pause', () => {
-      audioEl.play().catch(() => {});
-    });
-
-    // --- AVATAR EDITOR LOGIC ---
+    // Avatar Cropper Logic
     let cropper;
     const avatarInput = document.getElementById('avatar-input');
     const imageToCrop = document.getElementById('image-to-crop');
@@ -324,42 +177,26 @@
     avatarInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
-
       const reader = new FileReader();
       reader.onload = (event) => {
         imageToCrop.src = event.target.result;
         cropperModal.style.display = 'flex';
-        
         if (cropper) cropper.destroy();
-        cropper = new Cropper(imageToCrop, {
-          aspectRatio: 1,
-          viewMode: 1,
-          dragMode: 'move',
-          autoCropArea: 1,
-          background: false
-        });
+        cropper = new Cropper(imageToCrop, { aspectRatio: 1, viewMode: 1, dragMode: 'move', autoCropArea: 1, background: false });
       };
       reader.readAsDataURL(file);
     });
 
-    btnCancelCrop.addEventListener('click', () => {
-      cropperModal.style.display = 'none';
-      avatarInput.value = '';
-    });
+    btnCancelCrop.addEventListener('click', () => { cropperModal.style.display = 'none'; avatarInput.value = ''; });
 
     btnSaveCrop.addEventListener('click', () => {
       if (!cropper) return;
-      
       const canvas = cropper.getCroppedCanvas({ width: 256, height: 256 });
-      
       canvas.toBlob(async (blob) => {
         cropperModal.style.display = 'none';
-        
-        const url = URL.createObjectURL(blob);
-        avatarPreview.src = url;
+        avatarPreview.src = URL.createObjectURL(blob);
         avatarPreview.style.display = 'block';
         avatarPlaceholder.style.display = 'none';
-
         uploadBtn.textContent = 'Uploading...';
         uploadBtn.disabled = true;
 
@@ -369,29 +206,23 @@
         try {
           const res = await fetch('/api/upload-avatar', { method: 'POST', body: formData });
           const data = await res.json();
-          
           if (data.url) {
             window.myAvatarUrl = data.url; 
-            
             document.getElementById('join-btn').disabled = false;
             document.getElementById('host-btn').disabled = false;
             uploadBtn.textContent = 'Uploaded ✓';
             uploadBtn.style.background = '#10b981';
           } else {
-            alert('Upload failed.');
-            uploadBtn.textContent = 'Try Again';
-            uploadBtn.disabled = false;
+            alert('Upload failed.'); uploadBtn.textContent = 'Try Again'; uploadBtn.disabled = false;
           }
         } catch (err) {
-          console.error(err);
-          alert('Error uploading');
-          uploadBtn.textContent = 'Try Again';
-          uploadBtn.disabled = false;
+          console.error(err); alert('Error uploading'); uploadBtn.textContent = 'Try Again'; uploadBtn.disabled = false;
         }
       }, 'image/jpeg', 0.9);
     });
   </script>
 
+  <!-- Make sure to link your frontend game.js here -->
   <script type="module" src="game.js"></script>
 </body>
 </html>
