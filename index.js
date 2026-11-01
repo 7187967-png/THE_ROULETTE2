@@ -1,45 +1,41 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
+const { put } = require('@vercel/blob'); // Import Vercel Blob
 
 const app = express();
 
-// Create uploads folder if it doesn't exist
-const uploadDir = path.join(__dirname, 'public', 'avatars');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Use memory storage so files are not written to the local disk
+const upload = multer({ storage: multer.memoryStorage() });
 
-// Save files directly to your computer (for local development)
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + '-avatar.jpg');
-  }
-});
-const upload = multer({ storage: storage });
-
+// Serve static files from the public folder
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.post('/api/upload-avatar', upload.single('avatar'), (req, res) => {
+app.post('/api/upload-avatar', upload.single('avatar'), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
-    res.json({ url: `/avatars/${req.file.filename}` });
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded.' });
+    }
+
+    // Upload the buffer directly to Vercel Blob
+    const blob = await put(`avatars/${Date.now()}-avatar.jpg`, req.file.buffer, {
+      access: 'public',
+      token: process.env.BLOB_READ_WRITE_TOKEN, // Reads the token from Vercel environment variables
+    });
+
+    // Return the public URL of the uploaded image
+    res.json({ url: blob.url });
+
   } catch (error) {
     console.error('Upload error:', error);
     res.status(500).json({ error: 'Upload failed.' });
   }
 });
 
-// --- THIS IS THE CRITICAL LINE FOR VERCEL ---
-// Export the app as a module so Vercel can run it as a serverless function.
+// Export the app for Vercel (Essential for serverless functions)
 module.exports = app;
 
-// Keep the listen() call for local development ONLY.
-// Vercel will ignore it.
+// Keep listen() for local development only
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
