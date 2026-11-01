@@ -6,7 +6,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gsta
 const firebaseConfig = {
   apiKey: "AIzaSyAhpEonUevmgZnV1Dq-c_JqAq80gH3sDcg",
   authDomain: "roulette-c19e5.firebaseapp.com",
-  databaseURL: "https://roulette-c19e5-default-rtdb.firebaseio.com", 
+  databaseURL: "https://roulette-c19e5-default-rtdb.firebaseio.com/", 
   projectId: "roulette-c19e5",
   storageBucket: "roulette-c19e5.firebasestorage.app",
   messagingSenderId: "457070238408",
@@ -48,10 +48,27 @@ let currentLobbyRef = null;
 let isHost = false;
 let hostGameLoopInterval = null;
 
+// Disable buttons until auth is ready
+hostBtn.disabled = true;
+joinBtn.disabled = true;
+
 // --- AUTHENTICATION ---
-signInAnonymously(auth).catch((error) => console.error("Auth error:", error));
+signInAnonymously(auth).catch((error) => {
+    console.error("Auth error:", error);
+    alert("Authentication failed! Did you enable Anonymous Sign-in in Firebase Console?");
+});
+
 onAuthStateChanged(auth, (user) => {
-  if (user) myUid = user.uid;
+  if (user) {
+    myUid = user.uid;
+    hostBtn.disabled = false;
+    joinBtn.disabled = false;
+    console.log("Logged in as:", myUid);
+  } else {
+    myUid = null;
+    hostBtn.disabled = true;
+    joinBtn.disabled = true;
+  }
 });
 
 // --- CHECK FOR AVATAR FROM INDEX.HTML ---
@@ -66,6 +83,7 @@ const checkAvatar = () => {
 
 // --- LOBBY LOGIC ---
 hostBtn.addEventListener('click', () => {
+  if (!myUid) return alert("Waiting for authentication...");
   if (!checkAvatar()) return;
   
   const code = generateRoomCode();
@@ -77,10 +95,11 @@ hostBtn.addEventListener('click', () => {
     players: {
       [myUid]: { name: 'Host', avatar: myAvatarUrl, isBot: false, alive: true }
     }
-  }).then(() => enterLobby(code));
+  }).then(() => enterLobby(code)).catch(err => alert("Database error: " + err.message));
 });
 
 joinBtn.addEventListener('click', async () => {
+  if (!myUid) return alert("Waiting for authentication...");
   if (!checkAvatar()) return;
   
   const code = joinCodeInput.value.trim().toUpperCase();
@@ -90,7 +109,9 @@ joinBtn.addEventListener('click', async () => {
   if (!snapshot.exists()) return alert("Lobby not found!");
   
   const lobby = snapshot.val();
-  const playerCount = Object.keys(lobby.players || {}).length;
+  // SAFETY CHECK: ensure players exists
+  const playersObj = lobby.players || {};
+  const playerCount = Object.keys(playersObj).length;
   if (playerCount >= 6) return alert("Lobby is full!");
 
   await update(ref(db, `lobbies/${code}/players/${myUid}`), {
@@ -114,6 +135,7 @@ function enterLobby(code) {
     const data = snapshot.val();
     if (!data) { window.location.reload(); return; }
 
+    // SAFETY CHECK
     const players = data.players || {};
     const playerList = Object.keys(players).map(id => ({ id, ...players[id] }));
     isHost = (data.host === myUid);
@@ -163,24 +185,32 @@ chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') chatSendB
 
 // --- HOST: START GAME & BOTS ---
 startGameBtn.addEventListener('click', async () => {
+  if (!currentLobbyRef) return;
   const snapshot = await get(currentLobbyRef);
   const data = snapshot.val();
-  const humanCount = Object.keys(data.players).filter(id => !data.players[id].isBot).length;
+  
+  // SAFETY CHECK for crash
+  if (!data || !data.players) return alert("Lobby data not found.");
+
+  const playersObj = data.players;
+  const humanCount = Object.keys(playersObj).filter(id => !playersObj[id].isBot).length;
   const botCount = parseInt(botCountInput.value, 10) || 0;
 
   if (humanCount + botCount > 6) return alert("Max players is 6!");
   if (humanCount + botCount < 2) return alert("Need at least 2 players (including bots)!");
 
-  // Add Bots
+  // Add Bots (FIXED BOT ID LOGIC)
   const updates = {};
+  const activePlayerIds = Object.keys(playersObj); // Start with existing humans
+
   for (let i = 0; i < botCount; i++) {
     const botId = 'bot_' + Date.now() + '_' + i;
     updates[`players/${botId}`] = { name: `Bot ${i+1}`, avatar: 'https://cdn-icons-png.flaticon.com/512/616/616430.png', isBot: true, alive: true };
+    activePlayerIds.push(botId); // Add bot to active list properly
   }
   
-  const playerIds = [...Object.keys(data.players), ...Object.keys(updates).map(k => k.split('/')[1])];
   updates['status'] = 'playing';
-  updates['game'] = { activePlayers: playerIds, currentTurn: null, eliminated: null, winner: null };
+  updates['game'] = { activePlayers: activePlayerIds, currentTurn: null, eliminated: null, winner: null };
 
   await update(currentLobbyRef, updates);
   
@@ -265,13 +295,16 @@ function updateGameUI(data, playerList) {
 // --- RETURN TO LOBBY ---
 backToLobbyBtn.addEventListener('click', async () => {
   if (!isHost) return alert("Only the host can restart the game."); 
+  
   await update(currentLobbyRef, { status: 'waiting', game: null });
   
-  // Reset alive status
-  const updates = {};
+  // Reset alive status safely
   const snapshot = await get(ref(db, `lobbies/${currentLobbyCode}/players`));
-  snapshot.forEach(child => { updates[`players/${child.key}/alive`] = true; });
-  await update(currentLobbyRef, updates);
+  if (snapshot.exists()) {
+      const updates = {};
+      snapshot.forEach(child => { updates[`players/${child.key}/alive`] = true; });
+      await update(currentLobbyRef, updates);
+  }
 });
 
 function generateRoomCode() {
