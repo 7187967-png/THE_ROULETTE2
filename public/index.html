@@ -255,6 +255,7 @@
     let currentLobbyCode = null;
     let currentLobbyRef = null;
     let isHost = false;
+    let finalCarouselRotation = 0; // Tracks the end-of-spin rotation
 
     signInAnonymously(auth).catch(console.error);
     onAuthStateChanged(auth, (user) => { if (user) myUid = user.uid; });
@@ -321,6 +322,7 @@
           gameScreen.classList.remove('active');
           lobbyScreen.classList.add('active');
           winnerOverlay.style.display = 'none';
+          finalCarouselRotation = 0;
           carousel.style.transition = 'none';
           carousel.style.transform = 'rotate(0deg)'; 
         }
@@ -413,8 +415,8 @@
     function updateGameUI(data, playerList) {
       const game = data.game || {};
       const totalPlayers = playerList.length;
-      
-      // 1. Build Avatars with THREE wrappers
+
+      // 1. Build Avatars
       avatarRing.innerHTML = playerList.map((p, index) => {
         const angle = (index / totalPlayers) * 360; 
         const isTurn = (p.id === game.currentTurn);
@@ -439,25 +441,35 @@
       if (game.currentTurn) {
         const targetIndex = playerList.findIndex(p => p.id === game.currentTurn);
         
-        // Math: Rotate 5 full times, ending on the target
         const targetAngle = (targetIndex / totalPlayers) * 360;
-        const totalRotation = (360 * 5) - targetAngle; 
+        // Add 5 full spins to make it look like a camera spinning
+        finalCarouselRotation = (360 * 5) - targetAngle; 
 
         carousel.style.transition = 'transform 5s cubic-bezier(0.2, 0.8, 0.2, 1)';
-        carousel.style.transform = `rotate(${totalRotation}deg)`;
+        carousel.style.transform = `rotate(${finalCarouselRotation}deg)`;
 
         // Counter-rotate the inner card to keep them straight
         document.querySelectorAll('.card-rotate').forEach((el, i) => {
             const nodeAngle = (i / totalPlayers) * 360;
             el.style.transition = 'transform 5s cubic-bezier(0.2, 0.8, 0.2, 1)';
-            el.style.transform = `rotate(${-(totalRotation + nodeAngle)}deg)`; 
+            el.style.transform = `rotate(${-(finalCarouselRotation + nodeAngle)}deg)`; 
         });
         
         turnIndicator.textContent = `Spinning...`;
         turnIndicator.style.color = "#f5c542";
       } 
       else if (game.eliminated) {
+        // Freeze the carousel exactly where it stopped
         carousel.style.transition = 'none';
+        carousel.style.transform = `rotate(${finalCarouselRotation}deg)`;
+
+        // Force the inner cards to stay perfectly straight during the taking animation
+        document.querySelectorAll('.card-rotate').forEach((el, i) => {
+            const nodeAngle = (i / totalPlayers) * 360;
+            el.style.transition = 'none';
+            el.style.transform = `rotate(${-(finalCarouselRotation + nodeAngle)}deg)`; 
+        });
+        
         turnIndicator.textContent = `TAKEN INTO THE DARKNESS!`;
         turnIndicator.style.color = "#ff1a1a";
       } 
