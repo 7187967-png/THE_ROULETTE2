@@ -75,7 +75,6 @@
     <h2 id="turn-indicator">Waiting...</h2>
     
     <div id="cinematic-scene">
-      <!-- The dark background void -->
       <div id="void-background"></div>
 
       <!-- The circular track that spins behind the table -->
@@ -101,7 +100,6 @@
     </div>
   </div>
 
-  <!-- MUSIC -->
   <audio id="menu-music" loop autoplay>
     <source src="https://www.image2url.com/r2/default/audio/1793564169307-d6bfda4b-1820-4f32-9a8e-696ead87d892.mp3" type="audio/mpeg" />
   </audio>
@@ -255,7 +253,7 @@
     let currentLobbyCode = null;
     let currentLobbyRef = null;
     let isHost = false;
-    let finalCarouselRotation = 0; // Tracks the end-of-spin rotation
+    let finalCarouselRotation = 0;
 
     signInAnonymously(auth).catch(console.error);
     onAuthStateChanged(auth, (user) => { if (user) myUid = user.uid; });
@@ -362,7 +360,9 @@
       if (humanCount + botCount < 2) return alert("Need 2+ players!");
 
       const updates = {};
-      const activePlayerIds = Object.keys(playersObj);
+      
+      // SHUFFLE THE PLAYER ORDER TO PREVENT ANY BIAS
+      const activePlayerIds = Object.keys(playersObj).sort(() => Math.random() - 0.5);
 
       for (let i = 0; i < botCount; i++) {
         const botId = 'bot_' + Date.now() + '_' + i;
@@ -394,10 +394,15 @@
 
         // 1. Pick the chosen one and START SPIN
         const chosenVictim = active[Math.floor(Math.random() * active.length)];
+        
+        // DEBUG LOG: Check your console to see it's random
+        console.log("Spinning to:", data.players[chosenVictim].name);
+        
         await update(ref(db, `lobbies/${currentLobbyCode}/game`), { currentTurn: chosenVictim, eliminated: null });
         
         // 2. Wait for spin to end (5s), then the EXACT SAME GUY gets taken
         setTimeout(async () => {
+          console.log("Eliminating:", data.players[chosenVictim].name);
           await update(ref(db, `lobbies/${currentLobbyCode}/game`), { eliminated: chosenVictim, currentTurn: null });
           
           // 3. Wait 5 seconds for the monster to finish taking them, then reset
@@ -442,13 +447,11 @@
         const targetIndex = playerList.findIndex(p => p.id === game.currentTurn);
         
         const targetAngle = (targetIndex / totalPlayers) * 360;
-        // Add 5 full spins to make it look like a camera spinning
         finalCarouselRotation = (360 * 5) - targetAngle; 
 
         carousel.style.transition = 'transform 5s cubic-bezier(0.2, 0.8, 0.2, 1)';
         carousel.style.transform = `rotate(${finalCarouselRotation}deg)`;
 
-        // Counter-rotate the inner card to keep them straight
         document.querySelectorAll('.card-rotate').forEach((el, i) => {
             const nodeAngle = (i / totalPlayers) * 360;
             el.style.transition = 'transform 5s cubic-bezier(0.2, 0.8, 0.2, 1)';
@@ -459,11 +462,9 @@
         turnIndicator.style.color = "#f5c542";
       } 
       else if (game.eliminated) {
-        // Freeze the carousel exactly where it stopped
         carousel.style.transition = 'none';
         carousel.style.transform = `rotate(${finalCarouselRotation}deg)`;
 
-        // Force the inner cards to stay perfectly straight during the taking animation
         document.querySelectorAll('.card-rotate').forEach((el, i) => {
             const nodeAngle = (i / totalPlayers) * 360;
             el.style.transition = 'none';
