@@ -3,82 +3,256 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>THE ROULETTE 2 - UPLOAD TEST</title>
+  <title>THE ROULETTE 2</title>
+  
+  <link rel="icon" type="image/png" href="https://imagepaste.org/i/b7bszach.png">
   <link rel="stylesheet" href="style.css" />
+  
+  <!-- Cropper.js for Avatar Editor -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+  
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
 
-  <div id="menu-screen" class="screen active" style="display:flex; height:100vh; align-items:center; justify-content:center;">
-    <div class="glass-panel menu-container" style="padding: 40px; text-align: center; background: #111; border: 1px solid #333; border-radius: 10px;">
-      <h1 style="font-family:'Bebas Neue'; font-size: 3em; color: #ff1a1a; margin-top: 0;">UPLOAD<br>TEST</h1>
+  <!-- MENU SCREEN -->
+  <div id="menu-screen" class="screen active">
+    <div class="glass-panel menu-container">
+      <h1 class="game-title">THE ROULETTE<br><span>2</span></h1>
       
-      <div class="avatar-section" style="margin: 20px 0;">
-        <label for="avatar-input" class="avatar-upload-label" style="cursor:pointer; display:inline-block; padding:20px; background:#222; border-radius:50%;">
-          <img id="avatar-preview" src="" alt="Preview" style="display:none; width:100px; height:100px; border-radius:50%; object-fit:cover;" />
-          <div id="avatar-placeholder" style="color:white;">Select Image</div>
+      <div class="avatar-section">
+        <label for="avatar-input" class="avatar-upload-label" id="avatar-label">
+          <img id="avatar-preview" src="" alt="Preview" />
+          <div class="avatar-placeholder" id="avatar-placeholder">Select<br>Image</div>
         </label>
-        <input type="file" id="avatar-input" accept="image/*" style="display: none;" />
+        <input type="file" id="avatar-input" accept="image/*" style="display: none !important;" />
+        <button id="upload-btn" class="btn btn-upload" disabled>Upload Avatar</button>
       </div>
 
-      <h2 id="status-text" style="color: white; font-size: 1.2em;">Waiting for file...</h2>
+      <input type="text" id="username-input" placeholder="ENTER YOUR NAME" maxlength="30" class="name-input" />
+      
+      <div class="divider"><span>OR</span></div>
+
+      <input type="text" id="join-code-input" placeholder="ENTER CODE" maxlength="4" class="code-input" />
+      <button id="join-btn" class="btn btn-join" disabled>Join Lobby</button>
+      
+      <button id="host-btn" class="btn btn-host" disabled>Host New Lobby</button>
     </div>
   </div>
 
+  <!-- CROPPER MODAL -->
+  <div id="cropper-modal">
+    <div class="cropper-container-wrapper"><img id="image-to-crop" src="" alt="Crop me"></div>
+    <div class="cropper-controls">
+      <button id="btn-cancel-crop">Cancel</button>
+      <button id="btn-save-crop">Save Avatar</button>
+    </div>
+  </div>
+
+  <!-- LOBBY SCREEN -->
+  <div id="lobby-screen" class="screen">
+    <div class="glass-panel lobby-container">
+      <h1 class="lobby-title">LOBBY</h1>
+      <div class="room-code-box">
+        <span>ROOM CODE</span>
+        <strong id="room-code-display"></strong>
+      </div>
+      <div id="lobby-player-list"></div>
+      
+      <div id="host-controls" class="host-controls" style="display:none;">
+        <div class="bot-input-group">
+          <label>ADD BOTS:</label>
+          <input type="number" id="bot-count" min="0" max="5" value="0" />
+        </div>
+        <button id="start-game-btn" class="btn btn-start">START GAME</button>
+      </div>
+      <div id="guest-waiting" class="guest-waiting" style="display:none;">
+        <p>Waiting for host to start</p>
+        <div class="loading-dots"><span>.</span><span>.</span><span>.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="game-screen" class="screen">
+    <h2 id="turn-indicator">Waiting...</h2>
+    
+    <div id="scene">
+      <div id="table-3d">
+        <div id="vortex-base"></div>
+        <img id="vortex-image" src="https://imagepaste.org/i/vpxgqzp9.png" alt="Vortex" />
+        <div id="orbit-3d"></div>
+      </div>
+    </div>
+
+    <div id="winner-overlay" class="overlay" style="display:none;">
+      <h1 id="winner-text">CONGRATULATIONS!</h1>
+      <button id="back-to-lobby-btn" class="btn btn-join" style="width: auto; padding: 20px 40px; font-size: 1.5em;">Back to Lobby</button>
+    </div>
+
+    <div id="chat-container" class="glass-panel">
+      <div id="chat-messages"></div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Type a message..." />
+        <button id="chat-send-btn">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Music -->
+  <audio id="menu-music" loop autoplay>
+    <source src="https://www.image2url.com/r2/default/audio/1793564169307-d6bfda4b-1820-4f32-9a8e-696ead87d892.mp3" type="audio/mpeg" />
+  </audio>
+
   <script>
-    const avatarInput = document.getElementById('avatar-input');
+    // --- LOCAL STORAGE & UI SETUP ---
+    const usernameInput = document.getElementById('username-input');
     const avatarPreview = document.getElementById('avatar-preview');
     const avatarPlaceholder = document.getElementById('avatar-placeholder');
-    const statusText = document.getElementById('status-text');
+    const uploadBtn = document.getElementById('upload-btn');
+    const joinBtn = document.getElementById('join-btn');
+    const hostBtn = document.getElementById('host-btn');
 
-    avatarInput.addEventListener('change', async (e) => {
-      alert("1. FILE SELECTED!"); 
+    function checkButtons() {
+        if (window.myAvatarUrl) {
+            joinBtn.disabled = false;
+            hostBtn.disabled = false;
+        } else {
+            joinBtn.disabled = true;
+            hostBtn.disabled = true;
+        }
+    }
+
+    try {
+        const savedName = localStorage.getItem('roulette_username');
+        if (savedName) usernameInput.value = savedName;
+
+        const savedAvatar = localStorage.getItem('roulette_avatar');
+        if (savedAvatar) {
+            window.myAvatarUrl = savedAvatar;
+            avatarPreview.src = savedAvatar;
+            avatarPreview.style.display = 'block';
+            avatarPlaceholder.style.display = 'none';
+            uploadBtn.textContent = 'Uploaded ✓';
+            uploadBtn.style.background = '#10b981';
+            uploadBtn.style.borderColor = '#10b981';
+            uploadBtn.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.5)';
+            checkButtons();
+        }
+    } catch (e) {}
+
+    usernameInput.addEventListener('input', () => {
+        try { localStorage.setItem('roulette_username', usernameInput.value.trim()); } catch (e) {}
+    });
+
+    // --- MUSIC LOGIC ---
+    const audioEl = document.getElementById('menu-music');
+    document.addEventListener('click', () => { 
+        if (audioEl.paused) audioEl.play().catch(() => {}); 
+    });
+    audioEl.addEventListener('pause', () => { 
+        audioEl.play().catch(() => {}); 
+    });
+
+    // --- AVATAR CROPPER & UPLOAD LOGIC ---
+    let cropper;
+    let originalFile = null;
+    const avatarInput = document.getElementById('avatar-input');
+    const imageToCrop = document.getElementById('image-to-crop');
+    const cropperModal = document.getElementById('cropper-modal');
+
+    avatarInput.addEventListener('change', (e) => {
       const file = e.target.files[0]; 
       if (!file) return;
-
-      avatarPreview.src = URL.createObjectURL(file);
-      avatarPreview.style.display = 'block';
-      avatarPlaceholder.style.display = 'none';
       
-      statusText.textContent = "Uploading...";
-      statusText.style.color = "yellow";
-
-      const formData = new FormData();
-      formData.append('avatar', file, 'avatar.jpg');
-
-      try {
-        alert("2. SENDING REQUEST TO SERVER...");
+      originalFile = file;
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        imageToCrop.src = event.target.result;
         
-        const res = await fetch('/api/upload-avatar', { 
-            method: 'POST', 
-            body: formData 
+        if (typeof Cropper === 'undefined') {
+            alert("Your browser is blocking the image editor. Uploading the original image instead.");
+            processUpload(file); 
+            return;
+        }
+
+        cropperModal.style.display = 'flex';
+        if (cropper) cropper.destroy();
+        cropper = new Cropper(imageToCrop, { 
+            aspectRatio: 1, 
+            viewMode: 1, 
+            dragMode: 'move', 
+            autoCropArea: 1, 
+            background: false 
         });
-        
-        alert("3. SERVER RESPONDED WITH STATUS: " + res.status);
+      };
+      reader.readAsDataURL(file);
+    });
 
-        const contentType = res.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-            alert("ERROR: Server returned HTML. Check Vercel logs!");
-            throw new Error("Server crashed. Did you redeploy?");
-        }
+    document.getElementById('btn-cancel-crop').addEventListener('click', () => { 
+        cropperModal.style.display = 'none'; 
+        avatarInput.value = ''; 
+    });
 
-        const data = await res.json();
-
-        if (data.url) {
-          alert("4. SUCCESS! URL: " + data.url);
-          statusText.textContent = "Upload Successful!";
-          statusText.style.color = "lightgreen";
-        } else {
-          alert("SERVER ERROR: " + data.error);
-          statusText.textContent = "Failed.";
-          statusText.style.color = "red";
-        }
-      } catch (err) {
-        alert("FETCH ERROR: " + err.message);
-        statusText.textContent = "Failed.";
-        statusText.style.color = "red";
+    document.getElementById('btn-save-crop').addEventListener('click', () => {
+      if (cropper && typeof Cropper !== 'undefined') {
+          const canvas = cropper.getCroppedCanvas({ width: 256, height: 256 });
+          canvas.toBlob((blob) => {
+              cropperModal.style.display = 'none';
+              processUpload(blob);
+          }, 'image/jpeg', 0.9);
+      } else {
+          cropperModal.style.display = 'none';
+          if (originalFile) processUpload(originalFile);
       }
     });
+
+    async function processUpload(fileBlob) {
+        avatarPreview.src = URL.createObjectURL(fileBlob);
+        avatarPreview.style.display = 'block'; 
+        avatarPlaceholder.style.display = 'none';
+        
+        uploadBtn.textContent = 'Uploading...'; 
+        uploadBtn.disabled = true;
+
+        const formData = new FormData(); 
+        formData.append('avatar', fileBlob, 'avatar.jpg');
+        
+        try {
+          const res = await fetch('/api/upload-avatar', { method: 'POST', body: formData });
+          
+          const contentType = res.headers.get("content-type");
+          if (!contentType || !contentType.includes("application/json")) {
+              throw new Error("Server error. Check your Vercel logs.");
+          }
+
+          const data = await res.json();
+          
+          if (data.url) {
+            window.myAvatarUrl = data.url; 
+            try { localStorage.setItem('roulette_avatar', data.url); } catch (e) {}
+            
+            checkButtons();
+            uploadBtn.textContent = 'Uploaded ✓'; 
+            uploadBtn.style.background = '#10b981';
+            uploadBtn.style.borderColor = '#10b981';
+            uploadBtn.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.5)';
+          } else {
+            alert('Upload failed: ' + (data.error || 'Unknown error'));
+            uploadBtn.textContent = 'Try Again'; 
+            uploadBtn.disabled = false;
+          }
+        } catch (err) { 
+          alert('Error: ' + err.message); 
+          uploadBtn.textContent = 'Try Again'; 
+          uploadBtn.disabled = false; 
+        }
+    }
   </script>
+  
+  <!-- Frontend Game Logic -->
+  <script type="module" src="game.js"></script>
 </body>
 </html>
