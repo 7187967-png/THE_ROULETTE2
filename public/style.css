@@ -1,160 +1,221 @@
-/* Base Game Screen Styles */
-.screen { display: none; }
-.screen.active { display: block; text-align: center; }
+:root {
+  --primary: #ff1a1a;
+  --primary-glow: rgba(255, 26, 26, 0.6);
+  --bg-dark: #050505;
+  --glass-bg: rgba(15, 15, 20, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+* { box-sizing: border-box; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background-color: #1a1a2e; color: #eee; margin: 0; padding: 20px;
-  min-height: 100vh; overflow-x: hidden;
+  margin: 0; padding: 0; min-height: 100vh; width: 100%;
+  background: radial-gradient(circle at center, #1a0000 0%, #050505 100%);
+  font-family: 'Inter', sans-serif; color: #fff; overflow-x: hidden;
 }
-#room-code-display { font-size: 2em; letter-spacing: 6px; color: #ff1a1a; font-weight: bold; }
 
-/* LOBBY LIST */
-#lobby-player-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin: 30px auto; max-width: 800px; }
+.screen { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
+.screen.active { display: flex; }
+
+/* GLASS PANEL BASE */
+.glass-panel {
+  background: var(--glass-bg); backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border); border-radius: 16px;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(255,255,255,0.05);
+}
+
+/* =========================================
+   MAIN MENU
+   ========================================= */
+.menu-container {
+  width: 100%; max-width: 420px; padding: 40px 30px;
+  display: flex; flex-direction: column; align-items: center;
+  border-top: 4px solid var(--primary);
+}
+
+.game-title {
+  font-family: 'Bebas Neue', sans-serif; font-size: 5em; line-height: 0.85;
+  text-align: center; margin: 0 0 30px 0; color: #fff;
+  text-shadow: 0 0 20px var(--primary-glow);
+}
+.game-title span { color: var(--primary); font-size: 1.2em; }
+
+.avatar-section { display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; }
+.avatar-upload-label {
+  width: 130px; height: 130px; border-radius: 50%; border: 2px dashed rgba(255,255,255,0.2);
+  display: flex; justify-content: center; align-items: center; cursor: pointer;
+  overflow: hidden; transition: all 0.3s; background: #000; position: relative;
+}
+.avatar-upload-label:hover { border-color: var(--primary); box-shadow: 0 0 20px var(--primary-glow); }
+.avatar-upload-label img { width: 100%; height: 100%; object-fit: cover; display: none; }
+.avatar-placeholder { color: #888; font-size: 0.9em; text-align: center; pointer-events: none; }
+
+.divider { width: 100%; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); line-height: 0.1em; margin: 25px 0; }
+.divider span { background: var(--glass-bg); padding: 0 15px; color: #777; font-size: 0.8em; font-weight: bold; }
+
+.name-input, .code-input {
+  width: 100%; padding: 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(0,0,0,0.4); color: #fff; transition: 0.3s; outline: none;
+}
+.name-input { font-size: 1.1em; text-align: center; margin-bottom: 15px; font-weight: 600; }
+.code-input { font-size: 1.5em; font-family: monospace; text-align: center; letter-spacing: 6px; text-transform: uppercase; }
+.name-input:focus, .code-input:focus { border-color: var(--primary); box-shadow: 0 0 15px var(--primary-glow); background: rgba(0,0,0,0.6); }
+
+.btn {
+  width: 100%; padding: 16px; border-radius: 8px; border: none; font-size: 1.1em;
+  font-weight: 800; cursor: pointer; text-transform: uppercase; transition: all 0.3s;
+  letter-spacing: 1px; font-family: 'Inter', sans-serif;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
+.btn-upload { background: rgba(255,255,255,0.1); color: #fff; margin-top: 15px; width: auto; padding: 8px 20px; font-size: 0.8em; border-radius: 20px; }
+.btn-upload:hover:not(:disabled) { background: rgba(255,255,255,0.2); }
+.btn-join { background: var(--primary); color: #000; margin-top: 15px; box-shadow: 0 0 20px var(--primary-glow); }
+.btn-join:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 5px 25px var(--primary-glow); }
+.btn-host { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.3); margin-top: 15px; }
+.btn-host:hover:not(:disabled) { background: rgba(255,255,255,0.1); border-color: #fff; }
+
+/* =========================================
+   LOBBY
+   ========================================= */
+.lobby-container { padding: 40px; width: 90%; max-width: 800px; text-align: center; }
+.lobby-title { font-family: 'Bebas Neue'; font-size: 3em; margin: 0 0 10px 0; letter-spacing: 2px; }
+.room-code-box { display: flex; flex-direction: column; margin-bottom: 30px; }
+.room-code-box span { font-size: 0.8em; color: #888; letter-spacing: 2px; }
+.room-code-box strong { font-size: 3em; color: var(--primary); letter-spacing: 8px; text-shadow: 0 0 15px var(--primary-glow); }
+
+#lobby-player-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-bottom: 30px; }
 #lobby-player-list .player-card {
   display: flex; flex-direction: column; align-items: center; padding: 15px;
-  border: 2px solid #444; border-radius: 12px; background: #16213e; width: 100px;
+  background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; width: 110px;
+  transition: transform 0.2s;
 }
-#lobby-player-list .player-card img { width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 3px solid #444; }
-#lobby-player-list .player-card span { font-size: 0.9em; font-weight: bold; margin-top: 5px; }
+#lobby-player-list .player-card:hover { transform: translateY(-5px); background: rgba(255,255,255,0.05); }
+#lobby-player-list .player-card img { width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 3px solid #333; margin-bottom: 10px; }
+#lobby-player-list .player-card span { font-size: 0.9em; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+
+.host-controls { display: flex; flex-direction: column; align-items: center; gap: 15px; }
+.bot-input-group { display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.3); padding: 10px 20px; border-radius: 8px; }
+.bot-input-group input { width: 60px; padding: 8px; border-radius: 4px; border: 1px solid #444; background: #111; color: #fff; font-size: 1.2em; text-align: center; }
+.btn-start { background: #10b981; color: #000; max-width: 300px; box-shadow: 0 0 20px rgba(16, 185, 129, 0.4); }
 
 /* =========================================
-   THE ROULETTE TABLE & VORTEX
+   THE 3D GAME SCENE
    ========================================= */
-#game-table { position: relative; display: flex; flex-direction: column; align-items: center; margin-top: 20px; }
+#game-screen { perspective: 1200px; overflow: hidden; position: relative; }
+#turn-indicator { position: absolute; top: 30px; font-family: 'Bebas Neue'; font-size: 2.5em; color: var(--primary); text-shadow: 0 0 15px var(--primary-glow); z-index: 100; letter-spacing: 2px; }
 
-/* Fully filled dark table with orange border */
-#roulette-table {
+#scene { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+
+#table-3d {
   position: relative;
-  width: 550px;
-  height: 550px;
-  margin: 40px auto;
-  background: #000; /* Fully filled with darkness */
-  border: 8px solid #ff4500; /* Orange ring */
+  width: 400px; height: 400px;
+  transform-style: preserve-3d;
+  /* Tilt the table to create the 3D perspective */
+  transform: rotateX(65deg) rotateZ(0deg);
+  transition: transform 3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* The Dark Void in the center */
+#vortex-base {
+  position: absolute; top: 50%; left: 50%; width: 300px; height: 300px;
+  background: radial-gradient(circle, #000 30%, #1a0000 70%, transparent 100%);
   border-radius: 50%;
-  box-shadow: 0 0 60px rgba(255, 69, 0, 0.4), inset 0 0 50px #000;
-  /* Note: overflow: hidden is removed so avatars can orbit OUTSIDE */
+  transform: translate(-50%, -50%) translateZ(1px);
+  box-shadow: inset 0 0 50px rgba(255, 0, 0, 0.2);
 }
 
-/* The Vortex image emerging from darkness */
-#table-center-vortex {
-  position: absolute;
-  top: 50%; left: 50%;
-  width: 350px; height: 350px;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  object-fit: cover;
-  /* mix-blend-mode makes the black parts of the image transparent against the table */
-  mix-blend-mode: screen; 
-  opacity: 0.9;
-  z-index: 2;
-  animation: vortexPulse 3s infinite alternate ease-in-out;
-}
-
-@keyframes vortexPulse {
-  0% { transform: translate(-50%, -50%) scale(1); filter: brightness(1) drop-shadow(0 0 10px #ff4500); }
-  100% { transform: translate(-50%, -50%) scale(1.1); filter: brightness(1.5) drop-shadow(0 0 30px #ff0000); }
-}
-
-/* The layer holding the players */
-#orbit-layer {
-  position: absolute;
-  top: 0; left: 0; width: 100%; height: 100%;
-  z-index: 5;
-  /* Rotates the entire layer continuously */
-  animation: spinTable 25s linear infinite;
-  transform-origin: center center;
-}
-
-/* The Player Cards */
-#orbit-layer .player-card {
-  position: absolute;
-  display: flex; flex-direction: column; align-items: center;
-  width: 90px;
-  transform: translate(-50%, -50%) rotate(0deg); 
-  transition: all 0.3s ease;
-}
-
-/* Counter-rotate the avatar so it stays upright while orbiting */
-#orbit-layer .player-card img {
-  width: 80px; height: 80px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 4px solid #333;
-  background: #000;
-  animation: counterSpin 25s linear infinite; 
-  transition: all 0.3s;
-}
-
-#orbit-layer .player-card span {
-  font-size: 0.85em; margin-top: 5px; background: rgba(0,0,0,0.9);
-  padding: 2px 8px; border-radius: 10px; white-space: nowrap; border: 1px solid #333;
-}
-
-/* Highlighting the target */
-#orbit-layer .player-card.active img { 
-  border-color: #ffcc00; 
-  box-shadow: 0 0 30px #ffcc00; 
-  transform: scale(1.15); 
-}
-
-/* Eliminated players fade out */
-#orbit-layer .player-card.eliminated { 
-  opacity: 0.15; 
-  filter: grayscale(1); 
-}
-
-/* =========================================
-   THE "TAKING" (VORTEX) ANIMATION
-   ========================================= */
-#orbit-layer .player-card.being-taken {
-  animation: suckIntoVortex 1.5s cubic-bezier(0.4, 0, 1, 1) forwards;
-  z-index: 10;
+/* The Vortex Image that sneaks up */
+#vortex-image {
+  position: absolute; top: 50%; left: 50%; width: 350px; height: 350px;
+  transform: translate(-50%, -50%) translateZ(2px) scale(0.5);
+  border-radius: 50%; object-fit: cover; opacity: 0;
+  mix-blend-mode: screen;
+  transition: all 1.5s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
 }
 
-@keyframes suckIntoVortex {
-  0% { 
-    opacity: 1; 
-    transform: translate(-50%, -50%) scale(1) rotate(0deg); 
-  }
-  50% {
-    opacity: 0.8;
-    transform: translate(-50%, -50%) scale(0.6) rotate(360deg);
-    filter: blur(3px) brightness(2);
-  }
-  100% { 
-    /* Overrides inline left/top to force it to the exact center */
-    top: 50% !important; 
-    left: 50% !important; 
-    opacity: 0; 
-    transform: translate(-50%, -50%) scale(0) rotate(1080deg); 
-    filter: blur(15px);
-  }
+/* Players on the 3D table */
+#orbit-3d {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  transform-style: preserve-3d;
 }
 
-@keyframes spinTable {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+.player-3d {
+  position: absolute; top: 50%; left: 50%;
+  transform-style: preserve-3d;
+  transition: transform 0.5s ease;
 }
 
-@keyframes counterSpin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(-360deg); }
+.player-3d .card-inner {
+  display: flex; flex-direction: column; align-items: center;
+  /* Counter-rotate the players so they stand up straight despite the table tilt */
+  transform: translate(-50%, -50%) rotateX(-65deg);
+  transition: all 0.3s;
+}
+
+.player-3d img {
+  width: 80px; height: 80px; border-radius: 50%; object-fit: cover;
+  border: 3px solid #333; background: #000;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.8);
+  transition: all 0.3s;
+}
+
+.player-3d span {
+  font-size: 0.9em; margin-top: 8px; background: rgba(0,0,0,0.8);
+  padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);
+  white-space: nowrap;
+}
+
+/* Active Player */
+.player-3d.active .card-inner { transform: translate(-50%, -50%) rotateX(-65deg) scale(1.15); }
+.player-3d.active img { border-color: #f5c542; box-shadow: 0 0 30px #f5c542; }
+
+/* The Taking Animation in 3D */
+.player-3d.being-taken {
+  animation: suck3D 2s forwards;
+  z-index: 100;
+}
+.player-3d.being-taken .card-inner {
+  animation: spinAndFall 2s forwards;
+}
+
+@keyframes suck3D {
+  0% { transform: rotateZ(var(--angle)) translateY(-180px) translateZ(0); }
+  100% { transform: rotateZ(var(--angle)) translateY(0px) translateZ(-300px); }
+}
+
+@keyframes spinAndFall {
+  0% { transform: translate(-50%, -50%) rotateX(-65deg) scale(1.15); opacity: 1; }
+  50% { transform: translate(-50%, -50%) rotateX(-65deg) rotateZ(180deg) scale(0.8); opacity: 0.8; filter: blur(2px); }
+  100% { transform: translate(-50%, -50%) rotateX(-65deg) rotateZ(720deg) scale(0); opacity: 0; filter: blur(10px); }
+}
+
+/* The Spin Animation Triggered by JS */
+#table-3d.spinning {
+  transform: rotateX(65deg) rotateZ(1080deg);
+}
+
+#table-3d.vortex-active #vortex-image {
+  transform: translate(-50%, -50%) translateZ(100px) scale(1.2);
+  opacity: 1;
+  animation: pulseVortex 1s infinite alternate;
+}
+
+@keyframes pulseVortex {
+  0% { filter: brightness(1); }
+  100% { filter: brightness(2) drop-shadow(0 0 40px red); }
 }
 
 /* Overlays & Chat */
 .overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0, 0, 0, 0.92); display: flex; flex-direction: column;
-  justify-content: center; align-items: center; z-index: 100;
+  background: rgba(0, 0, 0, 0.95); display: flex; flex-direction: column;
+  justify-content: center; align-items: center; z-index: 1000;
 }
-.overlay img { max-width: 300px; margin-bottom: 20px; }
-.overlay h1 { color: #f5c542; font-size: 3em; }
+.overlay h1 { font-family: 'Bebas Neue'; color: #f5c542; font-size: 4em; text-shadow: 0 0 30px rgba(245, 197, 66, 0.5); margin-bottom: 30px;}
 
-#chat-container { max-width: 600px; margin: 30px auto; background: #16213e; border-radius: 12px; padding: 15px; }
-#chat-messages { height: 150px; overflow-y: auto; border: 1px solid #444; padding: 10px; margin-bottom: 10px; text-align: left; border-radius: 8px; }
+#chat-container { position: absolute; bottom: 20px; right: 20px; width: 350px; padding: 15px; z-index: 100; }
+#chat-messages { height: 120px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); padding: 10px; margin-bottom: 10px; border-radius: 8px; font-size: 0.9em; }
 .chat-input-row { display: flex; gap: 10px; }
-#chat-input { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #444; background: #0f3460; color: white; }
-button { padding: 10px 20px; background: #ff1a1a; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; }
-button:hover { background: #ff4d4d; }
+#chat-input { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.5); color: white; outline: none; }
+#chat-send-btn { background: var(--primary); border: none; color: #000; font-weight: bold; padding: 0 15px; border-radius: 6px; cursor: pointer; }
