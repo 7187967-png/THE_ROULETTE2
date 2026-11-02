@@ -8,7 +8,6 @@
   <link rel="icon" type="image/png" href="https://imagepaste.org/i/b7bszach.png">
   <link rel="stylesheet" href="style.css" />
   
-  <!-- Cropper.js for Avatar Editor -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   
@@ -16,7 +15,6 @@
 </head>
 <body>
 
-  <!-- MENU SCREEN -->
   <div id="menu-screen" class="screen active">
     <div class="glass-panel menu-container">
       <h1 class="game-title">THE ROULETTE<br><span>2</span></h1>
@@ -41,7 +39,6 @@
     </div>
   </div>
 
-  <!-- CROPPER MODAL -->
   <div id="cropper-modal">
     <div class="cropper-container-wrapper"><img id="image-to-crop" src="" alt="Crop me"></div>
     <div class="cropper-controls">
@@ -50,7 +47,6 @@
     </div>
   </div>
 
-  <!-- LOBBY SCREEN -->
   <div id="lobby-screen" class="screen">
     <div class="glass-panel lobby-container">
       <h1 class="lobby-title">LOBBY</h1>
@@ -74,7 +70,6 @@
     </div>
   </div>
 
-  <!-- GAME SCREEN -->
   <div id="game-screen" class="screen">
     <h2 id="turn-indicator">Waiting...</h2>
     
@@ -100,13 +95,11 @@
     </div>
   </div>
 
-  <!-- Music -->
   <audio id="menu-music" loop autoplay>
     <source src="https://www.image2url.com/r2/default/audio/1793564169307-d6bfda4b-1820-4f32-9a8e-696ead87d892.mp3" type="audio/mpeg" />
   </audio>
 
   <script>
-    // --- LOCAL STORAGE & UI SETUP ---
     const usernameInput = document.getElementById('username-input');
     const avatarPreview = document.getElementById('avatar-preview');
     const avatarPlaceholder = document.getElementById('avatar-placeholder');
@@ -115,7 +108,7 @@
     const hostBtn = document.getElementById('host-btn');
 
     function checkButtons() {
-        if (window.myAvatarUrl) {
+        if (window.myAvatarUrl && usernameInput.value.trim() !== '') {
             joinBtn.disabled = false;
             hostBtn.disabled = false;
         } else {
@@ -144,9 +137,9 @@
 
     usernameInput.addEventListener('input', () => {
         try { localStorage.setItem('roulette_username', usernameInput.value.trim()); } catch (e) {}
+        checkButtons();
     });
 
-    // --- MUSIC LOGIC ---
     const audioEl = document.getElementById('menu-music');
     document.addEventListener('click', () => { 
         if (audioEl.paused) audioEl.play().catch(() => {}); 
@@ -155,7 +148,6 @@
         audioEl.play().catch(() => {}); 
     });
 
-    // --- AVATAR CROPPER & UPLOAD LOGIC ---
     let cropper;
     let originalFile = null;
     const avatarInput = document.getElementById('avatar-input');
@@ -252,7 +244,7 @@
     }
   </script>
   
-  <!-- Frontend Game Logic -->
+  <!-- CRUCIAL: MUST BE type="module" -->
   <script type="module" src="game.js"></script>
 </body>
 </html>
