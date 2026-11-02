@@ -13,7 +13,6 @@
 </head>
 <body>
 
-  <!-- MENU SCREEN -->
   <div id="menu-screen" class="screen active">
     <div class="glass-panel menu-container">
       <h1 class="game-title">THE ROULETTE<br><span>2</span></h1>
@@ -38,7 +37,6 @@
     </div>
   </div>
 
-  <!-- CROPPER MODAL -->
   <div id="cropper-modal">
     <div class="cropper-container-wrapper"><img id="image-to-crop" src="" alt="Crop me"></div>
     <div class="cropper-controls">
@@ -47,7 +45,6 @@
     </div>
   </div>
 
-  <!-- LOBBY SCREEN -->
   <div id="lobby-screen" class="screen">
     <div class="glass-panel lobby-container">
       <h1 class="lobby-title">LOBBY</h1>
@@ -70,15 +67,13 @@
     </div>
   </div>
 
-  <!-- GAME SCREEN -->
   <div id="game-screen" class="screen">
     <h2 id="turn-indicator">Waiting...</h2>
     
     <div id="cinematic-scene">
-      <!-- The dark background void -->
       <div id="void-background"></div>
 
-      <!-- The circular track that spins behind the table -->
+      <!-- The circular track -->
       <div id="carousel">
         <div id="avatar-ring"></div>
       </div>
@@ -101,12 +96,11 @@
     </div>
   </div>
 
-  <!-- MUSIC -->
   <audio id="menu-music" loop autoplay>
     <source src="https://www.image2url.com/r2/default/audio/1793564169307-d6bfda4b-1820-4f32-9a8e-696ead87d892.mp3" type="audio/mpeg" />
   </audio>
 
-  <!-- UI LOGIC & BASE64 AVATAR -->
+  <!-- UI LOGIC -->
   <script>
     const usernameInput = document.getElementById('username-input');
     const avatarPreview = document.getElementById('avatar-preview');
@@ -115,7 +109,6 @@
     const joinBtn = document.getElementById('join-btn');
     const hostBtn = document.getElementById('host-btn');
 
-    // Music
     const audioEl = document.getElementById('menu-music');
     document.addEventListener('click', () => { if (audioEl.paused) audioEl.play().catch(() => {}); });
     audioEl.addEventListener('pause', () => { audioEl.play().catch(() => {}); });
@@ -303,7 +296,6 @@
         const playerList = Object.keys(players).map(id => ({ id, ...players[id] }));
         isHost = (data.host === myUid);
 
-        // Lobby Render with Kick Button
         lobbyPlayerList.innerHTML = playerList.map(p => `
           <div class="player-card">
             ${isHost && p.id !== myUid ? `<button class="kick-btn" onclick="kickPlayer('${p.id}')">X</button>` : ''}
@@ -337,7 +329,6 @@
       });
     }
 
-    // KICK PLAYER FUNCTION
     window.kickPlayer = async (playerId) => {
         if (!isHost) return;
         if (playerId === myUid) return alert("You can't kick yourself!");
@@ -393,23 +384,22 @@
           return;
         }
 
-        // 1. Spin (Takes 5 seconds)
-        const spinPick = active[Math.floor(Math.random() * active.length)];
-        await update(ref(db, `lobbies/${currentLobbyCode}/game`), { currentTurn: spinPick, eliminated: null });
+        // 1. Pick the chosen one and START SPIN
+        const chosenVictim = active[Math.floor(Math.random() * active.length)];
+        await update(ref(db, `lobbies/${currentLobbyCode}/game`), { currentTurn: chosenVictim, eliminated: null });
         
-        // 2. Wait for spin to end, trigger monster
+        // 2. Wait for spin to end, then the EXACT SAME GUY gets taken
         setTimeout(async () => {
-          const eliminatedId = active[Math.floor(Math.random() * active.length)];
-          await update(ref(db, `lobbies/${currentLobbyCode}/game`), { eliminated: eliminatedId, currentTurn: null });
+          await update(ref(db, `lobbies/${currentLobbyCode}/game`), { eliminated: chosenVictim, currentTurn: null });
           
-          // 3. Wait 5 seconds for taking, reset
+          // 3. Wait 5 seconds for the monster to finish taking them
           setTimeout(async () => {
-            active = active.filter(id => id !== eliminatedId);
+            active = active.filter(id => id !== chosenVictim);
             await update(ref(db, `lobbies/${currentLobbyCode}/game`), { activePlayers: active, eliminated: null });
-            await update(ref(db, `lobbies/${currentLobbyCode}/players/${eliminatedId}`), { alive: false });
+            await update(ref(db, `lobbies/${currentLobbyCode}/players/${chosenVictim}`), { alive: false });
             step(); 
-          }, 5000); // 5 SECOND DELAY
-        }, 5000); // 5 SECOND SPIN
+          }, 5000); // 5 SECOND TAKING DELAY
+        }, 5000); // 5 SECOND SPIN DELAY
       };
       step();
     }
@@ -418,16 +408,19 @@
       const game = data.game || {};
       const totalPlayers = playerList.length;
       
+      // Calculate the initial offset so the spin starts from the left and ends at the right
+      // We rotate the whole ring by -90deg so the avatars visually appear on the top arc.
+      const startAngle = -90;
+
       // 1. Build Avatars
       avatarRing.innerHTML = playerList.map((p, index) => {
-        // Spread them across 360 degrees
-        const angle = (index / totalPlayers) * 360; 
+        // Spread across 180 degrees (from left to right)
+        const angle = startAngle + (index / totalPlayers) * 360; 
         
         const isTurn = (p.id === game.currentTurn);
         const isDead = !p.alive;
         const isBeingTaken = (p.id === game.eliminated);
 
-        // Notice the inline style transform keeps them straight initially
         return `
           <div class="avatar-node ${isTurn ? 'active' : ''} ${isDead ? 'eliminated' : ''} ${isBeingTaken ? 'being-taken' : ''}"
                style="--angle: ${angle};">
@@ -443,20 +436,19 @@
       // 2. Handle Spin
       if (game.currentTurn) {
         const targetIndex = playerList.findIndex(p => p.id === game.currentTurn);
-        // To make the target end up at the TOP CENTER (which is angle 0 in our math)
-        // we rotate the carousel backwards by their current angle.
-        const targetAngle = (targetIndex / totalPlayers) * 360;
-        // Add 5 full spins (1800 degrees) for the visual effect
+        
+        // Calculate where we need to rotate to put the target at the top (angle 0)
+        const targetAngle = startAngle + (targetIndex / totalPlayers) * 360;
+        // Rotate 5 full times + the target angle
         const totalRotation = (360 * 5) - targetAngle;
 
         carousel.style.transition = 'transform 5s cubic-bezier(0.2, 0.8, 0.2, 1)';
         carousel.style.transform = `rotate(${totalRotation}deg)`;
 
-        // Counter-rotate inner cards perfectly
+        // Keep avatars perfectly straight during rotation
         document.querySelectorAll('.card-inner').forEach((el, i) => {
-            const nodeAngle = (i / totalPlayers) * 360;
+            const nodeAngle = startAngle + (i / totalPlayers) * 360;
             el.style.transition = 'transform 5s cubic-bezier(0.2, 0.8, 0.2, 1)';
-            // We must rotate opposite to the total rotation + their original angle
             el.style.transform = `rotate(${-(totalRotation + nodeAngle)}deg)`; 
         });
         
