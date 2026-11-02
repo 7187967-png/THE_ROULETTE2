@@ -4,13 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>THE ROULETTE 2</title>
-  
   <link rel="icon" type="image/png" href="https://imagepaste.org/i/b7bszach.png">
   <link rel="stylesheet" href="style.css" />
   
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
-  
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -42,8 +40,8 @@
   <div id="cropper-modal">
     <div class="cropper-container-wrapper"><img id="image-to-crop" src="" alt="Crop me"></div>
     <div class="cropper-controls">
-      <button id="btn-cancel-crop">Cancel</button>
-      <button id="btn-save-crop">Save Avatar</button>
+      <button id="btn-cancel-crop" style="background: #333; color:#fff;">Cancel</button>
+      <button id="btn-save-crop" style="background: #ff1a1a; color:#000;">Save Avatar</button>
     </div>
   </div>
 
@@ -63,9 +61,8 @@
         </div>
         <button id="start-game-btn" class="btn btn-start">START GAME</button>
       </div>
-      <div id="guest-waiting" class="guest-waiting" style="display:none;">
-        <p>Waiting for host to start</p>
-        <div class="loading-dots"><span>.</span><span>.</span><span>.</span></div>
+      <div id="guest-waiting" style="display:none; margin-top: 20px;">
+        <p>Waiting for host to start...</p>
       </div>
     </div>
   </div>
@@ -95,11 +92,8 @@
     </div>
   </div>
 
-  <audio id="menu-music" loop autoplay>
-    <source src="https://www.image2url.com/r2/default/audio/1793564169307-d6bfda4b-1820-4f32-9a8e-696ead87d892.mp3" type="audio/mpeg" />
-  </audio>
-
   <script>
+    // --- UI & AVATAR LOGIC ---
     const usernameInput = document.getElementById('username-input');
     const avatarPreview = document.getElementById('avatar-preview');
     const avatarPlaceholder = document.getElementById('avatar-placeholder');
@@ -107,8 +101,10 @@
     const joinBtn = document.getElementById('join-btn');
     const hostBtn = document.getElementById('host-btn');
 
+    let myAvatarBase64 = ''; // Stored as Base64 instead of a URL
+
     function checkButtons() {
-        if (window.myAvatarUrl && usernameInput.value.trim() !== '') {
+        if (myAvatarBase64 && usernameInput.value.trim() !== '') {
             joinBtn.disabled = false;
             hostBtn.disabled = false;
         } else {
@@ -121,16 +117,14 @@
         const savedName = localStorage.getItem('roulette_username');
         if (savedName) usernameInput.value = savedName;
 
-        const savedAvatar = localStorage.getItem('roulette_avatar');
+        const savedAvatar = localStorage.getItem('roulette_avatar_base64');
         if (savedAvatar) {
-            window.myAvatarUrl = savedAvatar;
+            myAvatarBase64 = savedAvatar;
             avatarPreview.src = savedAvatar;
             avatarPreview.style.display = 'block';
             avatarPlaceholder.style.display = 'none';
             uploadBtn.textContent = 'Uploaded ✓';
             uploadBtn.style.background = '#10b981';
-            uploadBtn.style.borderColor = '#10b981';
-            uploadBtn.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.5)';
             checkButtons();
         }
     } catch (e) {}
@@ -138,14 +132,6 @@
     usernameInput.addEventListener('input', () => {
         try { localStorage.setItem('roulette_username', usernameInput.value.trim()); } catch (e) {}
         checkButtons();
-    });
-
-    const audioEl = document.getElementById('menu-music');
-    document.addEventListener('click', () => { 
-        if (audioEl.paused) audioEl.play().catch(() => {}); 
-    });
-    audioEl.addEventListener('pause', () => { 
-        audioEl.play().catch(() => {}); 
     });
 
     let cropper;
@@ -165,20 +151,14 @@
         imageToCrop.src = event.target.result;
         
         if (typeof Cropper === 'undefined') {
-            alert("Your browser is blocking the image editor. Uploading the original image instead.");
+            alert("Editor blocked. Using original image.");
             processUpload(file); 
             return;
         }
 
         cropperModal.style.display = 'flex';
         if (cropper) cropper.destroy();
-        cropper = new Cropper(imageToCrop, { 
-            aspectRatio: 1, 
-            viewMode: 1, 
-            dragMode: 'move', 
-            autoCropArea: 1, 
-            background: false 
-        });
+        cropper = new Cropper(imageToCrop, { aspectRatio: 1, viewMode: 1, dragMode: 'move', autoCropArea: 1, background: false });
       };
       reader.readAsDataURL(file);
     });
@@ -190,61 +170,299 @@
 
     document.getElementById('btn-save-crop').addEventListener('click', () => {
       if (cropper && typeof Cropper !== 'undefined') {
-          const canvas = cropper.getCroppedCanvas({ width: 256, height: 256 });
-          canvas.toBlob((blob) => {
-              cropperModal.style.display = 'none';
-              processUpload(blob);
-          }, 'image/jpeg', 0.9);
+          // Compress to 128x128 jpeg to save space in the database
+          const canvas = cropper.getCroppedCanvas({ width: 128, height: 128 });
+          const base64String = canvas.toDataURL('image/jpeg', 0.8);
+          cropperModal.style.display = 'none';
+          processUpload(base64String);
       } else {
           cropperModal.style.display = 'none';
           if (originalFile) processUpload(originalFile);
       }
     });
 
-    async function processUpload(fileBlob) {
-        avatarPreview.src = URL.createObjectURL(fileBlob);
+    // Converts file to base64 and sets UI
+    function processUpload(fileOrBase64) {
+        if (typeof fileOrBase64 === 'string') {
+            finishUpload(fileOrBase64);
+        } else {
+            const reader = new FileReader();
+            reader.onload = (e) => finishUpload(e.target.result);
+            reader.readAsDataURL(fileOrBase64);
+        }
+    }
+
+    function finishUpload(base64) {
+        myAvatarBase64 = base64;
+        avatarPreview.src = base64;
         avatarPreview.style.display = 'block'; 
         avatarPlaceholder.style.display = 'none';
         
-        uploadBtn.textContent = 'Uploading...'; 
-        uploadBtn.disabled = true;
-
-        const formData = new FormData(); 
-        formData.append('avatar', fileBlob, 'avatar.jpg');
+        try { localStorage.setItem('roulette_avatar_base64', base64); } catch (e) {}
         
-        try {
-          const res = await fetch('/api/upload-avatar', { method: 'POST', body: formData });
-          
-          const contentType = res.headers.get("content-type");
-          if (!contentType || !contentType.includes("application/json")) {
-              throw new Error("Server error. Check your Vercel logs.");
-          }
-
-          const data = await res.json();
-          
-          if (data.url) {
-            window.myAvatarUrl = data.url; 
-            try { localStorage.setItem('roulette_avatar', data.url); } catch (e) {}
-            
-            checkButtons();
-            uploadBtn.textContent = 'Uploaded ✓'; 
-            uploadBtn.style.background = '#10b981';
-            uploadBtn.style.borderColor = '#10b981';
-            uploadBtn.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.5)';
-          } else {
-            alert('Upload failed: ' + (data.error || 'Unknown error'));
-            uploadBtn.textContent = 'Try Again'; 
-            uploadBtn.disabled = false;
-          }
-        } catch (err) { 
-          alert('Error: ' + err.message); 
-          uploadBtn.textContent = 'Try Again'; 
-          uploadBtn.disabled = false; 
-        }
+        checkButtons();
+        uploadBtn.textContent = 'Uploaded ✓'; 
+        uploadBtn.style.background = '#10b981';
     }
   </script>
   
-  <!-- MUST be type="module" for game.js to work -->
-  <script type="module" src="game.js"></script>
+  <!-- GAME LOGIC (Inline so Vercel can't break it) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, set, push, onValue, update, onDisconnect, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAhpEonUevmgZnV1Dq-c_JqAq80gH3sDcg",
+      authDomain: "roulette-c19e5.firebaseapp.com",
+      databaseURL: "https://roulette-c19e5-default-rtdb.firebaseio.com/", 
+      projectId: "roulette-c19e5",
+      storageBucket: "roulette-c19e5.firebasestorage.app",
+      messagingSenderId: "457070238408",
+      appId: "1:457070238408:web:f08080f416ef008dfb63fd"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const auth = getAuth(app);
+
+    const menuScreen = document.getElementById('menu-screen');
+    const lobbyScreen = document.getElementById('lobby-screen');
+    const gameScreen = document.getElementById('game-screen');
+    const joinCodeInput = document.getElementById('join-code-input');
+    const roomCodeDisplay = document.getElementById('room-code-display');
+    const lobbyPlayerList = document.getElementById('lobby-player-list');
+    const hostControls = document.getElementById('host-controls');
+    const guestWaiting = document.getElementById('guest-waiting');
+    const botCountInput = document.getElementById('bot-count');
+    const startGameBtn = document.getElementById('start-game-btn');
+    const orbit3d = document.getElementById('orbit-3d');
+    const table3d = document.getElementById('table-3d');
+    const turnIndicator = document.getElementById('turn-indicator');
+    const winnerOverlay = document.getElementById('winner-overlay');
+    const winnerText = document.getElementById('winner-text');
+    const backToLobbyBtn = document.getElementById('back-to-lobby-btn');
+    const chatMessages = document.getElementById('chat-messages');
+    const chatInput = document.getElementById('chat-input');
+    const chatSendBtn = document.getElementById('chat-send-btn');
+
+    let myUid = null;
+    let currentLobbyCode = null;
+    let currentLobbyRef = null;
+    let isHost = false;
+
+    signInAnonymously(auth).catch(console.error);
+    onAuthStateChanged(auth, (user) => {
+      if (user) { myUid = user.uid; }
+    });
+
+    hostBtn.addEventListener('click', () => {
+      if (!myAvatarBase64 || !usernameInput.value.trim()) return alert("Need name and avatar!");
+      const code = generateRoomCode();
+      set(ref(db, 'lobbies/' + code), {
+        host: myUid, status: 'waiting',
+        players: { [myUid]: { name: usernameInput.value.trim(), avatar: myAvatarBase64, isBot: false, alive: true } }
+      }).then(() => enterLobby(code));
+    });
+
+    joinBtn.addEventListener('click', async () => {
+      if (!myAvatarBase64 || !usernameInput.value.trim()) return alert("Need name and avatar!");
+      const code = joinCodeInput.value.trim().toUpperCase();
+      if (code.length !== 4) return alert("Invalid code.");
+      
+      const snapshot = await get(ref(db, 'lobbies/' + code));
+      if (!snapshot.exists()) return alert("Lobby not found!");
+      const lobby = snapshot.val();
+      const playersObj = lobby.players || {};
+      
+      if (Object.keys(playersObj).length >= 6) return alert("Lobby is full!");
+
+      await update(ref(db, `lobbies/${code}/players/${myUid}`), { 
+          name: usernameInput.value.trim(), 
+          avatar: myAvatarBase64, 
+          isBot: false, alive: true 
+      });
+      enterLobby(code);
+    });
+
+    function enterLobby(code) {
+      currentLobbyCode = code;
+      currentLobbyRef = ref(db, 'lobbies/' + code);
+      menuScreen.classList.remove('active');
+      lobbyScreen.classList.add('active');
+      roomCodeDisplay.textContent = code;
+      onDisconnect(ref(db, `lobbies/${code}/players/${myUid}`)).remove();
+
+      onValue(currentLobbyRef, (snapshot) => {
+        const data = snapshot.val();
+        if (!data) { window.location.reload(); return; }
+
+        const players = data.players || {};
+        const playerList = Object.keys(players).map(id => ({ id, ...players[id] }));
+        isHost = (data.host === myUid);
+
+        lobbyPlayerList.innerHTML = playerList.map(p => `
+          <div class="player-card">
+            <img src="${p.avatar}" alt="${p.name}" />
+            <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
+          </div>
+        `).join('');
+
+        hostControls.style.display = isHost ? 'flex' : 'none';
+        guestWaiting.style.display = isHost ? 'none' : 'block';
+
+        if (data.status === 'playing' || data.status === 'finished') {
+          lobbyScreen.classList.remove('active');
+          gameScreen.classList.add('active');
+          updateGameUI(data, playerList);
+        } else if (data.status === 'waiting') {
+          gameScreen.classList.remove('active');
+          lobbyScreen.classList.add('active');
+          winnerOverlay.style.display = 'none';
+          table3d.classList.remove('spinning', 'vortex-active');
+        }
+      });
+
+      onValue(ref(db, `lobbies/${code}/chat`), (snapshot) => {
+        const msgs = snapshot.val();
+        if (msgs) {
+          chatMessages.innerHTML = Object.values(msgs).map(m => `<p><strong>${m.sender}:</strong> ${m.text}</p>`).join('');
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+      });
+    }
+
+    chatSendBtn.addEventListener('click', async () => {
+      const text = chatInput.value.trim();
+      if (!text || !currentLobbyCode) return;
+      await push(ref(db, `lobbies/${currentLobbyCode}/chat`), { sender: usernameInput.value.trim(), text, timestamp: Date.now() });
+      chatInput.value = '';
+    });
+
+    startGameBtn.addEventListener('click', async () => {
+      const snapshot = await get(currentLobbyRef);
+      const data = snapshot.val();
+      const playersObj = data.players;
+      
+      const humanCount = Object.keys(playersObj).filter(id => !playersObj[id].isBot).length;
+      const botCount = parseInt(botCountInput.value, 10) || 0;
+
+      if (humanCount + botCount > 6) return alert("Max 6 players!");
+      if (humanCount + botCount < 2) return alert("Need 2+ players!");
+
+      const updates = {};
+      const activePlayerIds = Object.keys(playersObj);
+
+      for (let i = 0; i < botCount; i++) {
+        const botId = 'bot_' + Date.now() + '_' + i;
+        updates[`players/${botId}`] = { 
+            name: `Bot ${i+1}`, 
+            avatar: 'https://cdn-icons-png.flaticon.com/512/616/616430.png', 
+            isBot: true, alive: true 
+        };
+        activePlayerIds.push(botId);
+      }
+      
+      updates['status'] = 'playing';
+      updates['game'] = { activePlayers: activePlayerIds, currentTurn: null, eliminated: null, winner: null };
+      await update(currentLobbyRef, updates);
+      if (isHost) runHostGameLoop();
+    });
+
+    async function runHostGameLoop() {
+      const step = async () => {
+        const snapshot = await get(currentLobbyRef);
+        const data = snapshot.val();
+        if (!data || data.status !== 'playing' || !data.game) return;
+
+        let active = data.game.activePlayers || [];
+        if (active.length <= 1) {
+          await update(ref(db, `lobbies/${currentLobbyCode}`), { status: 'finished', 'game/winner': active[0] || null });
+          return;
+        }
+
+        const spinPick = active[Math.floor(Math.random() * active.length)];
+        await update(ref(db, `lobbies/${currentLobbyCode}/game`), { currentTurn: spinPick, eliminated: null });
+        
+        setTimeout(async () => {
+          const eliminatedId = active[Math.floor(Math.random() * active.length)];
+          await update(ref(db, `lobbies/${currentLobbyCode}/game`), { eliminated: eliminatedId, currentTurn: null });
+          
+          setTimeout(async () => {
+            active = active.filter(id => id !== eliminatedId);
+            await update(ref(db, `lobbies/${currentLobbyCode}/game`), { activePlayers: active, eliminated: null });
+            await update(ref(db, `lobbies/${currentLobbyCode}/players/${eliminatedId}`), { alive: false });
+            step(); 
+          }, 2000); 
+        }, 3000); 
+      };
+      step();
+    }
+
+    function updateGameUI(data, playerList) {
+      const game = data.game || {};
+      const totalPlayers = playerList.length;
+      
+      orbit3d.innerHTML = playerList.map((p, index) => {
+        const angle = (index / totalPlayers) * 360;
+        const radius = 180; 
+
+        const isTurn = (p.id === game.currentTurn);
+        const isDead = !p.alive;
+        const isBeingTaken = (p.id === game.eliminated);
+
+        return `
+          <div class="player-3d ${isTurn ? 'active' : ''} ${isDead ? 'eliminated' : ''} ${isBeingTaken ? 'being-taken' : ''}"
+               style="--angle: ${angle}deg; transform: rotateZ(${angle}deg) translateY(-${radius}px);">
+            <div class="card-inner">
+              <img src="${p.avatar}" alt="${p.name}" />
+              <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      if (game.currentTurn) {
+        table3d.classList.add('spinning');
+        table3d.classList.remove('vortex-active');
+        const p = playerList.find(x => x.id === game.currentTurn);
+        turnIndicator.textContent = `Spinning for ${p ? p.name : '...'}`;
+      } 
+      else if (game.eliminated) {
+        table3d.classList.remove('spinning');
+        table3d.classList.add('vortex-active');
+        turnIndicator.textContent = `TAKEN INTO THE DARKNESS!`;
+      } 
+      else {
+        table3d.classList.remove('spinning', 'vortex-active');
+        turnIndicator.textContent = `Spinning...`;
+      }
+
+      if (data.status === 'finished' && game.winner) {
+        table3d.classList.remove('spinning', 'vortex-active');
+        const winnerPlayer = playerList.find(x => x.id === game.winner);
+        winnerOverlay.style.display = 'flex';
+        winnerText.textContent = `WINNER: ${winnerPlayer ? winnerPlayer.name.toUpperCase() : ''}`;
+      }
+    }
+
+    backToLobbyBtn.addEventListener('click', async () => {
+      if (!isHost) return alert("Only host can restart."); 
+      await update(currentLobbyRef, { status: 'waiting', game: null });
+      const snapshot = await get(ref(db, `lobbies/${currentLobbyCode}/players`));
+      if (snapshot.exists()) {
+          const updates = {};
+          snapshot.forEach(child => { updates[`players/${child.key}/alive`] = true; });
+          await update(currentLobbyRef, updates);
+      }
+    });
+
+    function generateRoomCode() {
+      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      let code = '';
+      for (let i = 0; i < 4; i++) code += letters.charAt(Math.floor(Math.random() * letters.length));
+      return code;
+    }
+  </script>
 </body>
 </html>
