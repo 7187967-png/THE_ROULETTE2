@@ -13,7 +13,7 @@ body {
 .screen { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
 .screen.active { display: flex; }
 
-/* Panels (Menu & Lobby) */
+/* Panels */
 .glass-panel { background: var(--glass-bg); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 30px 60px rgba(0,0,0,0.9); }
 .menu-container { width: 100%; max-width: 450px; padding: 50px 40px; display: flex; flex-direction: column; align-items: center; border-top: 4px solid var(--primary); }
 .game-title { font-family: 'Bebas Neue', sans-serif; font-size: 5.5em; line-height: 0.85; text-align: center; margin-bottom: 40px; text-shadow: 0 0 20px var(--primary); }
@@ -51,7 +51,7 @@ body {
 .bot-input-group input { width: 70px; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #111; color: #fff; text-align: center; font-size: 1.2em; }
 
 /* =========================================
-   THE CAROUSEL 3D SCENE (Matches Drawing)
+   THE CAROUSEL SCENE
    ========================================= */
 #game-screen { overflow: hidden; position: relative; background: #000; }
 
@@ -70,30 +70,32 @@ body {
   z-index: 1;
 }
 
-/* The carousel wheel that spins behind the table */
+/* The carousel wheel. Top: 100vh pushes the center far down so the arc is gentle. */
 #carousel {
   position: absolute;
-  top: 80%; /* Center of the wheel is pushed down below the table */
+  top: 100vh; 
   left: 50%;
   width: 0; height: 0;
   z-index: 5;
-  /* We handle rotation purely in JS for smooth control */
+  transform-origin: center center;
 }
 
 #avatar-ring { position: relative; width: 0; height: 0; }
 
-/* Each Avatar in the carousel */
+/* The Avatar Nodes */
 .avatar-node {
   position: absolute;
   top: 0; left: 0;
-  /* The magic happens here: rotate the container, push out, and counter-rotate the card */
   transform-origin: center center;
   display: flex; flex-direction: column; align-items: center;
+  /* Orbit math */
+  transform: rotate(calc(var(--angle) * 1deg)) translateY(-550px);
 }
 
 .avatar-node .card-inner {
   display: flex; flex-direction: column; align-items: center;
-  transition: all 0.3s;
+  transform-origin: center center;
+  transition: transform 5s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .avatar-node img {
@@ -113,12 +115,11 @@ body {
 .avatar-node.active img { border-color: #f5c542; box-shadow: 0 0 40px #f5c542; }
 .avatar-node.eliminated { opacity: 0.1; filter: grayscale(1); }
 
-/* THE MASSIVE BROWN TABLE */
+/* MASSIVE BROWN TABLE */
 #foreground-table {
   position: absolute;
   bottom: -10%; left: -25%;
-  width: 150%; height: 60%;
-  /* Deep brown gradient */
+  width: 150%; height: 65%;
   background: radial-gradient(ellipse at top, #8c5a35 0%, #5c341c 40%, #261207 100%);
   border-radius: 50% 50% 0 0;
   box-shadow: 0 -20px 80px rgba(0,0,0,0.9);
@@ -132,13 +133,14 @@ body {
 .monster {
   position: absolute;
   top: 50%; 
-  /* Position it to the right of the victim */
-  left: 80px; 
-  width: 150px; height: 250px;
+  left: 100px; /* Position it to the right of the victim */
+  width: 150px; height: 200px;
   transform: translateY(-50%) scale(0);
   opacity: 0;
-  filter: drop-shadow(0 0 30px red) brightness(0.8);
+  /* Normal look, just adds a dark/red glow */
+  filter: drop-shadow(0 0 20px red) brightness(0.8);
   pointer-events: none;
+  z-index: 2;
 }
 
 .avatar-node.being-taken .monster {
@@ -150,30 +152,22 @@ body {
 }
 
 @keyframes sneakAndGrab {
-  0% { 
-    opacity: 0; transform: translateY(-50%) translateX(100px) scale(0.5); 
-  }
-  20% { 
-    /* Rises up to their right */
-    opacity: 1; transform: translateY(-50%) translateX(0) scale(1); 
-  }
-  40% { 
-    /* Grabs them */
-    transform: translateY(-50%) translateX(0) scale(1.1); 
-  }
-  100% { 
-    /* Pulls them backward (right) into the void */
-    opacity: 0; transform: translateY(-50%) translateX(300px) scale(0.1); 
-  }
+  0% { opacity: 0; transform: translateY(-50%) translateX(100px) scale(0.5); }
+  20% { opacity: 1; transform: translateY(-50%) translateX(0) scale(1); }
+  40% { transform: translateY(-50%) translateX(0) scale(1.1); }
+  100% { opacity: 0; transform: translateY(-50%) translateX(300px) scale(0.1); }
 }
 
 @keyframes draggedIntoDarkness {
   0%, 30% { 
-    opacity: 1; transform: translateX(0) scale(1); 
+    opacity: 1; 
+    translate: 0 0; 
   }
   100% { 
-    /* Dragged to the right into darkness */
-    opacity: 0; transform: translateX(250px) scale(0.2); 
+    /* Drags them to the right and fades them out */
+    opacity: 0; 
+    translate: 250px 0; 
+    scale: 0.2;
     filter: blur(10px);
   }
 }
