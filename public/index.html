@@ -414,14 +414,9 @@
       const game = data.game || {};
       const totalPlayers = playerList.length;
       
-      // Start at -90 degrees (Left edge)
-      const startAngle = -90;
-
-      // 1. Build Avatars
+      // 1. Build Avatars with THREE wrappers
       avatarRing.innerHTML = playerList.map((p, index) => {
-        // Spread across 180 degrees (from left to right)
-        const angle = startAngle + (index / totalPlayers) * 360; 
-        
+        const angle = (index / totalPlayers) * 360; 
         const isTurn = (p.id === game.currentTurn);
         const isDead = !p.alive;
         const isBeingTaken = (p.id === game.eliminated);
@@ -429,10 +424,12 @@
         return `
           <div class="avatar-node ${isTurn ? 'active' : ''} ${isDead ? 'eliminated' : ''} ${isBeingTaken ? 'being-taken' : ''}"
                style="--angle: ${angle};">
-            <div class="card-inner" style="transform: rotate(${-angle}deg);">
-              <img src="${p.avatar}" alt="${p.name}" />
-              <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
-              ${isBeingTaken ? `<img class="monster" src="https://imagepaste.org/i/vpxgqzp9.png" alt="Monster">` : ''}
+            <div class="card-rotate" style="--inv-angle: -${angle}deg;">
+              <div class="card-anim">
+                <img class="avatar-image" src="${p.avatar}" alt="${p.name}" />
+                <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
+                ${isBeingTaken ? `<img class="monster" src="https://imagepaste.org/i/vpxgqzp9.png" alt="Monster">` : ''}
+              </div>
             </div>
           </div>
         `;
@@ -442,17 +439,16 @@
       if (game.currentTurn) {
         const targetIndex = playerList.findIndex(p => p.id === game.currentTurn);
         
-        // Calculate where we need to rotate to put the target at the top (angle 0)
-        const targetAngle = startAngle + (targetIndex / totalPlayers) * 360;
-        // Rotate 5 full times + the target angle
-        const totalRotation = (360 * 5) - targetAngle;
+        // Math: Rotate 5 full times, ending on the target
+        const targetAngle = (targetIndex / totalPlayers) * 360;
+        const totalRotation = (360 * 5) - targetAngle; 
 
         carousel.style.transition = 'transform 5s cubic-bezier(0.2, 0.8, 0.2, 1)';
         carousel.style.transform = `rotate(${totalRotation}deg)`;
 
-        // Keep avatars perfectly straight during rotation
-        document.querySelectorAll('.card-inner').forEach((el, i) => {
-            const nodeAngle = startAngle + (i / totalPlayers) * 360;
+        // Counter-rotate the inner card to keep them straight
+        document.querySelectorAll('.card-rotate').forEach((el, i) => {
+            const nodeAngle = (i / totalPlayers) * 360;
             el.style.transition = 'transform 5s cubic-bezier(0.2, 0.8, 0.2, 1)';
             el.style.transform = `rotate(${-(totalRotation + nodeAngle)}deg)`; 
         });
