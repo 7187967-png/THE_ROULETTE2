@@ -7,20 +7,18 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  font-family: 'Inter', sans-serif; background: radial-gradient(circle at center, #1a0000 0%, #050505 100%);
-  color: #fff; min-height: 100vh; overflow-x: hidden;
+  font-family: 'Inter', sans-serif; background: var(--bg-dark);
+  color: #fff; min-height: 100vh; overflow: hidden; /* Prevents scrollbars in game */
 }
 .screen { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
 .screen.active { display: flex; }
 
-/* Glassmorphism Panels */
+/* Glassmorphism Panels (Menu & Lobby) */
 .glass-panel {
   background: var(--glass-bg); backdrop-filter: blur(16px);
   border: 1px solid rgba(255,255,255,0.1); border-radius: 20px;
   box-shadow: 0 30px 60px rgba(0,0,0,0.9);
 }
-
-/* Menu */
 .menu-container { width: 100%; max-width: 450px; padding: 50px 40px; display: flex; flex-direction: column; align-items: center; border-top: 4px solid var(--primary); }
 .game-title { font-family: 'Bebas Neue', sans-serif; font-size: 5.5em; line-height: 0.85; text-align: center; margin-bottom: 40px; text-shadow: 0 0 20px var(--primary); }
 .game-title span { color: var(--primary); font-size: 1.3em; display: block; }
@@ -33,13 +31,12 @@ body {
 
 .divider { width: 100%; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); line-height: 0.1em; margin: 30px 0; }
 .divider span { background: var(--bg-dark); padding: 0 15px; color: #888; font-size: 0.8em; font-weight: 800; }
-.name-input, .code-input { width: 100%; padding: 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.5); color: #fff; outline: none; font-family: 'Inter'; transition: 0.3s; }
+.name-input, .code-input { width: 100%; padding: 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.5); color: #fff; outline: none; transition: 0.3s; }
 .name-input { font-size: 1.1em; text-align: center; margin-bottom: 15px; }
 .code-input { font-size: 1.8em; font-family: monospace; text-align: center; letter-spacing: 8px; text-transform: uppercase; }
 .name-input:focus, .code-input:focus { border-color: var(--primary); box-shadow: 0 0 20px var(--primary-glow); }
 
-/* Buttons */
-.btn { width: 100%; padding: 18px; border-radius: 12px; border: none; font-size: 1.1em; font-weight: 800; cursor: pointer; text-transform: uppercase; transition: 0.3s; letter-spacing: 1.5px; font-family: 'Inter'; }
+.btn { width: 100%; padding: 18px; border-radius: 12px; border: none; font-size: 1.1em; font-weight: 800; cursor: pointer; text-transform: uppercase; transition: 0.3s; letter-spacing: 1.5px; }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-upload { background: rgba(255,255,255,0.1); color: #fff; margin-top: 15px; width: auto; padding: 10px 25px; font-size: 0.85em; border-radius: 30px; }
 .btn-join { background: var(--primary); color: #000; margin-top: 15px; box-shadow: 0 0 20px var(--primary-glow); }
@@ -59,29 +56,146 @@ body {
 .bot-input-group { display: flex; align-items: center; justify-content: center; gap: 15px; background: rgba(0,0,0,0.5); padding: 15px; border-radius: 12px; }
 .bot-input-group input { width: 70px; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #111; color: #fff; text-align: center; font-size: 1.2em; }
 
-/* 3D Game Scene */
-#game-screen { perspective: 1200px; overflow: hidden; position: relative; }
-#turn-indicator { position: absolute; top: 40px; font-family: 'Bebas Neue'; font-size: 3em; text-shadow: 0 0 20px var(--primary); z-index: 100; padding: 10px 40px; background: rgba(0,0,0,0.6); border-radius: 30px; border: 1px solid var(--primary-glow); }
-#scene { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
-#table-3d { position: relative; width: 450px; height: 450px; transform-style: preserve-3d; transform: rotateX(65deg); transition: transform 3s cubic-bezier(0.2, 0.8, 0.2, 1); }
-#vortex-base { position: absolute; top: 50%; left: 50%; width: 500px; height: 500px; background: radial-gradient(circle, #000 30%, #ff1a1a 80%, transparent 100%); border-radius: 50%; transform: translate(-50%, -50%) translateZ(1px); box-shadow: 0 0 80px rgba(255, 26, 26, 0.6); border: 4px solid var(--primary); }
-#vortex-image { position: absolute; top: 50%; left: 50%; width: 400px; height: 400px; transform: translate(-50%, -50%) translateZ(2px) scale(0.5); border-radius: 50%; object-fit: cover; opacity: 0; mix-blend-mode: screen; transition: all 1.5s; pointer-events: none; }
-#orbit-3d { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform-style: preserve-3d; }
-.player-3d { position: absolute; top: 50%; left: 50%; transform-style: preserve-3d; transition: transform 0.5s; }
-.player-3d .card-inner { display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -50%) rotateX(-65deg); }
-.player-3d img { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; border: 4px solid #222; box-shadow: 0 15px 30px rgba(0,0,0,0.9); }
-.player-3d span { font-size: 1em; font-weight: 800; margin-top: 10px; background: rgba(0,0,0,0.9); padding: 5px 15px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); }
-.player-3d.active .card-inner { transform: translate(-50%, -50%) rotateX(-65deg) scale(1.2); }
-.player-3d.active img { border-color: #f5c542; box-shadow: 0 0 40px #f5c542; }
 
-/* 3D Animations */
-.player-3d.being-taken { animation: suck3D 2s forwards; z-index: 100; }
-.player-3d.being-taken .card-inner { animation: spinAndFall 2s forwards; }
-@keyframes suck3D { 0% { transform: rotateZ(var(--angle)) translateY(-200px) translateZ(0); } 100% { transform: rotateZ(var(--angle)) translateY(0px) translateZ(-400px); } }
-@keyframes spinAndFall { 0% { transform: translate(-50%, -50%) rotateX(-65deg) scale(1.2); opacity: 1; } 100% { transform: translate(-50%, -50%) rotateX(-65deg) rotateZ(720deg) scale(0); opacity: 0; filter: blur(15px); } }
-#table-3d.spinning { transform: rotateX(65deg) rotateZ(1080deg); }
-#table-3d.vortex-active #vortex-image { transform: translate(-50%, -50%) translateZ(150px) scale(1.3); opacity: 1; animation: pulseVortex 1s infinite alternate; }
-@keyframes pulseVortex { 0% { filter: brightness(1.2); } 100% { filter: brightness(2.5) drop-shadow(0 0 50px red); } }
+/* =========================================
+   CINEMATIC GAME SCENE (The New Look)
+   ========================================= */
+#game-screen { overflow: hidden; position: relative; background: #000; }
+
+#turn-indicator { 
+  position: absolute; top: 40px; font-family: 'Bebas Neue'; font-size: 3.5em; 
+  text-shadow: 0 0 20px var(--primary); z-index: 100; letter-spacing: 3px; 
+  background: rgba(0,0,0,0.6); padding: 10px 40px; border-radius: 30px; 
+  border: 1px solid var(--primary-glow); transition: 0.3s;
+}
+
+#cinematic-scene { 
+  width: 100%; height: 100%; position: relative; 
+  perspective: 1000px; /* Gives 3D depth */
+}
+
+/* The dark background void */
+#void-background {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background: radial-gradient(circle at 50% 30%, #1a0000 0%, #000 70%);
+  z-index: 1;
+}
+
+/* The massive foreground orange table */
+#foreground-table {
+  position: absolute;
+  bottom: -20%; left: -25%;
+  width: 150%; height: 60%;
+  background: radial-gradient(ellipse at top, #ff8c00 0%, #cc4400 40%, #441100 100%);
+  border-radius: 50% 50% 0 0;
+  box-shadow: 0 -20px 80px rgba(255, 100, 0, 0.5);
+  z-index: 10; /* Blocks the bottom half of avatars */
+  border-top: 4px solid #ffaa00;
+}
+
+#table-glow {
+  position: absolute; top: 0; left: 0; width: 100%; height: 10px;
+  background: #fff;
+  filter: blur(10px);
+  opacity: 0.8;
+}
+
+/* The avatars sitting in the arc */
+#avatar-arc {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  z-index: 5;
+}
+
+.cinematic-avatar {
+  position: absolute;
+  display: flex; flex-direction: column; align-items: center;
+  transform: translate(-50%, -50%);
+  transition: all 0.5s ease;
+}
+
+.cinematic-avatar img {
+  width: 90px; height: 90px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid #333;
+  background: #000;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.8);
+  transition: all 0.3s;
+}
+
+.cinematic-avatar span {
+  font-size: 1em; font-weight: 800; margin-top: 10px;
+  background: rgba(0,0,0,0.9); padding: 5px 15px;
+  border-radius: 20px; border: 1px solid rgba(255,255,255,0.2);
+  white-space: nowrap;
+}
+
+/* Active Turn Highlight */
+.cinematic-avatar.active img {
+  border-color: #f5c542;
+  box-shadow: 0 0 30px #f5c542;
+  transform: scale(1.1);
+}
+
+.cinematic-avatar.eliminated {
+  opacity: 0.2; filter: grayscale(1);
+}
+
+/* =========================================
+   THE MONSTER ANIMATION (Sneak Attack)
+   ========================================= */
+#monster-image {
+  position: absolute;
+  width: 200px; height: 200px;
+  transform: translate(-50%, -50%) scale(0); /* Hidden by default */
+  opacity: 0;
+  z-index: 4; /* Behind the avatars */
+  pointer-events: none;
+  mix-blend-mode: screen; /* Removes black background from image */
+  filter: invert(1) sepia(1) saturate(5) hue-rotate(-50deg); /* Makes the monster red/dark */
+}
+
+/* Triggered via JS */
+#monster-image.sneak-attack {
+  animation: sneakAndVanish 2.5s forwards;
+}
+
+@keyframes sneakAndVanish {
+  0% { 
+    opacity: 0; transform: translate(-50%, -20%) scale(0.5); 
+  }
+  30% { 
+    /* Rises up behind the avatar */
+    opacity: 1; transform: translate(-50%, -70%) scale(1.2); 
+  }
+  60% { 
+    /* Grabs the avatar */
+    transform: translate(-50%, -50%) scale(1.5); 
+    filter: brightness(2) drop-shadow(0 0 30px red);
+  }
+  100% { 
+    /* Pulls them down into the void */
+    opacity: 0; transform: translate(-50%, 50%) scale(0); 
+  }
+}
+
+/* The Victim's Animation */
+.cinematic-avatar.being-taken {
+  animation: draggedIntoDarkness 2.5s forwards;
+}
+
+@keyframes draggedIntoDarkness {
+  0%, 60% { 
+    /* Stays still while monster grabs them */
+    transform: translate(-50%, -50%) scale(1); opacity: 1; 
+  }
+  100% { 
+    /* Gets dragged down and vanishes */
+    transform: translate(-50%, 20%) scale(0.5); opacity: 0; filter: blur(10px);
+  }
+}
+
 
 /* Overlays & Chat */
 .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
