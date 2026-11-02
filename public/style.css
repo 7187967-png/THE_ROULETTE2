@@ -8,17 +8,13 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: 'Inter', sans-serif; background: var(--bg-dark);
-  color: #fff; min-height: 100vh; overflow: hidden; /* Prevents scrollbars in game */
+  color: #fff; min-height: 100vh; overflow: hidden;
 }
 .screen { display: none; height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
 .screen.active { display: flex; }
 
-/* Glassmorphism Panels (Menu & Lobby) */
-.glass-panel {
-  background: var(--glass-bg); backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,0.1); border-radius: 20px;
-  box-shadow: 0 30px 60px rgba(0,0,0,0.9);
-}
+/* Panels (Menu & Lobby) */
+.glass-panel { background: var(--glass-bg); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 30px 60px rgba(0,0,0,0.9); }
 .menu-container { width: 100%; max-width: 450px; padding: 50px 40px; display: flex; flex-direction: column; align-items: center; border-top: 4px solid var(--primary); }
 .game-title { font-family: 'Bebas Neue', sans-serif; font-size: 5.5em; line-height: 0.85; text-align: center; margin-bottom: 40px; text-shadow: 0 0 20px var(--primary); }
 .game-title span { color: var(--primary); font-size: 1.3em; display: block; }
@@ -28,14 +24,12 @@ body {
 .avatar-upload-label:hover { border-color: var(--primary); box-shadow: 0 0 30px var(--primary-glow); border-style: solid; }
 .avatar-upload-label img { width: 100%; height: 100%; object-fit: cover; display: none; }
 .avatar-placeholder { color: #fff; font-size: 0.9em; font-weight: 600; text-align: center; }
-
 .divider { width: 100%; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); line-height: 0.1em; margin: 30px 0; }
 .divider span { background: var(--bg-dark); padding: 0 15px; color: #888; font-size: 0.8em; font-weight: 800; }
 .name-input, .code-input { width: 100%; padding: 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.5); color: #fff; outline: none; transition: 0.3s; }
 .name-input { font-size: 1.1em; text-align: center; margin-bottom: 15px; }
 .code-input { font-size: 1.8em; font-family: monospace; text-align: center; letter-spacing: 8px; text-transform: uppercase; }
 .name-input:focus, .code-input:focus { border-color: var(--primary); box-shadow: 0 0 20px var(--primary-glow); }
-
 .btn { width: 100%; padding: 18px; border-radius: 12px; border: none; font-size: 1.1em; font-weight: 800; cursor: pointer; text-transform: uppercase; transition: 0.3s; letter-spacing: 1.5px; }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-upload { background: rgba(255,255,255,0.1); color: #fff; margin-top: 15px; width: auto; padding: 10px 25px; font-size: 0.85em; border-radius: 30px; }
@@ -58,9 +52,9 @@ body {
 
 
 /* =========================================
-   CINEMATIC GAME SCENE (The New Look)
+   3D CAMERA & TABLE SCENE
    ========================================= */
-#game-screen { overflow: hidden; position: relative; background: #000; }
+#game-screen { overflow: hidden; position: relative; background: #000; perspective: 1200px; }
 
 #turn-indicator { 
   position: absolute; top: 40px; font-family: 'Bebas Neue'; font-size: 3.5em; 
@@ -69,130 +63,123 @@ body {
   border: 1px solid var(--primary-glow); transition: 0.3s;
 }
 
-#cinematic-scene { 
-  width: 100%; height: 100%; position: relative; 
-  perspective: 1000px; /* Gives 3D depth */
+#scene { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; perspective: 1000px; }
+
+/* The World container that rotates */
+#world {
+  position: relative;
+  width: 600px; height: 600px;
+  transform-style: preserve-3d;
+  /* Initial view tilted down looking at the table */
+  transform: rotateX(20deg) rotateY(0deg);
 }
 
-/* The dark background void */
-#void-background {
-  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  background: radial-gradient(circle at 50% 30%, #1a0000 0%, #000 70%);
-  z-index: 1;
-}
-
-/* The massive foreground orange table */
-#foreground-table {
+/* The Brown Table */
+#table-surface {
   position: absolute;
-  bottom: -20%; left: -25%;
-  width: 150%; height: 60%;
-  background: radial-gradient(ellipse at top, #ff8c00 0%, #cc4400 40%, #441100 100%);
-  border-radius: 50% 50% 0 0;
-  box-shadow: 0 -20px 80px rgba(255, 100, 0, 0.5);
-  z-index: 10; /* Blocks the bottom half of avatars */
-  border-top: 4px solid #ffaa00;
-}
-
-#table-glow {
-  position: absolute; top: 0; left: 0; width: 100%; height: 10px;
-  background: #fff;
-  filter: blur(10px);
-  opacity: 0.8;
-}
-
-/* The avatars sitting in the arc */
-#avatar-arc {
-  position: absolute;
-  top: 0; left: 0; width: 100%; height: 100%;
-  z-index: 5;
-}
-
-.cinematic-avatar {
-  position: absolute;
-  display: flex; flex-direction: column; align-items: center;
-  transform: translate(-50%, -50%);
-  transition: all 0.5s ease;
-}
-
-.cinematic-avatar img {
-  width: 90px; height: 90px;
+  top: 50%; left: 50%;
+  width: 800px; height: 800px;
+  transform: translate(-50%, -50%) rotateX(90deg) translateZ(-50px);
   border-radius: 50%;
-  object-fit: cover;
-  border: 4px solid #333;
-  background: #000;
-  box-shadow: 0 10px 20px rgba(0,0,0,0.8);
+  /* Brown gradient to look like wood/leather */
+  background: radial-gradient(circle, #6b3e20 0%, #4a2511 40%, #1a0a04 90%);
+  border: 8px solid #2b1408;
+  box-shadow: inset 0 0 100px rgba(0,0,0,0.9), 0 0 60px rgba(255, 100, 0, 0.2);
+}
+
+/* The Ring of Avatars */
+#avatar-ring {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 0; height: 0;
+  transform-style: preserve-3d;
+}
+
+/* Each Avatar */
+.avatar-3d {
+  position: absolute;
+  top: 0; left: 0;
+  transform-style: preserve-3d;
   transition: all 0.3s;
 }
 
-.cinematic-avatar span {
+/* Inner wrapper to stand them up and face the camera */
+.avatar-3d .card-inner {
+  display: flex; flex-direction: column; align-items: center;
+  transform: translate(-50%, -50%) rotateY(calc(var(--angle) * -1)) rotateX(-20deg); 
+  /* The rotateY(-angle) keeps them facing the center, rotateX(-20) stands them up */
+}
+
+.avatar-3d img {
+  width: 90px; height: 90px;
+  border-radius: 50%; object-fit: cover;
+  border: 4px solid #222; background: #000;
+  box-shadow: 0 15px 30px rgba(0,0,0,0.9);
+}
+
+.avatar-3d span {
   font-size: 1em; font-weight: 800; margin-top: 10px;
   background: rgba(0,0,0,0.9); padding: 5px 15px;
   border-radius: 20px; border: 1px solid rgba(255,255,255,0.2);
   white-space: nowrap;
 }
 
-/* Active Turn Highlight */
-.cinematic-avatar.active img {
-  border-color: #f5c542;
-  box-shadow: 0 0 30px #f5c542;
-  transform: scale(1.1);
-}
+/* Active Player Highlight */
+.avatar-3d.active img { border-color: #f5c542; box-shadow: 0 0 40px #f5c542; }
+.avatar-3d.eliminated { opacity: 0.2; filter: grayscale(1); }
 
-.cinematic-avatar.eliminated {
-  opacity: 0.2; filter: grayscale(1);
-}
 
 /* =========================================
-   THE MONSTER ANIMATION (Sneak Attack)
+   THE MONSTER ANIMATION (Pulls Back)
    ========================================= */
-#monster-image {
+.monster {
   position: absolute;
-  width: 200px; height: 200px;
-  transform: translate(-50%, -50%) scale(0); /* Hidden by default */
+  top: 50%; left: 50%;
+  width: 250px; height: 250px;
+  transform: translate(-50%, -50%) translateZ(-10px) scale(0.5);
   opacity: 0;
-  z-index: 4; /* Behind the avatars */
+  mix-blend-mode: screen;
+  filter: invert(1) sepia(1) saturate(10) hue-rotate(-50deg) drop-shadow(0 0 20px red);
   pointer-events: none;
-  mix-blend-mode: screen; /* Removes black background from image */
-  filter: invert(1) sepia(1) saturate(5) hue-rotate(-50deg); /* Makes the monster red/dark */
+  z-index: -1; /* Sits behind the avatar */
 }
 
-/* Triggered via JS */
-#monster-image.sneak-attack {
-  animation: sneakAndVanish 2.5s forwards;
+.avatar-3d.being-taken .monster {
+  animation: sneakAndPullBack 5s forwards;
 }
 
-@keyframes sneakAndVanish {
+.avatar-3d.being-taken .card-inner {
+  animation: draggedIntoDarkness 5s forwards;
+}
+
+@keyframes sneakAndPullBack {
   0% { 
-    opacity: 0; transform: translate(-50%, -20%) scale(0.5); 
+    opacity: 0; transform: translate(-50%, -20%) translateZ(-50px) scale(0.5); 
   }
-  30% { 
-    /* Rises up behind the avatar */
-    opacity: 1; transform: translate(-50%, -70%) scale(1.2); 
+  20% { 
+    /* Rises up */
+    opacity: 1; transform: translate(-50%, -60%) translateZ(-50px) scale(1.2); 
   }
-  60% { 
-    /* Grabs the avatar */
-    transform: translate(-50%, -50%) scale(1.5); 
-    filter: brightness(2) drop-shadow(0 0 30px red);
+  40% { 
+    /* Grabs them */
+    transform: translate(-50%, -50%) translateZ(-20px) scale(1.5); 
   }
   100% { 
-    /* Pulls them down into the void */
-    opacity: 0; transform: translate(-50%, 50%) scale(0); 
+    /* Pulls them backward into the void */
+    opacity: 0; transform: translate(-50%, -50%) translateZ(-500px) scale(0.1); 
   }
-}
-
-/* The Victim's Animation */
-.cinematic-avatar.being-taken {
-  animation: draggedIntoDarkness 2.5s forwards;
 }
 
 @keyframes draggedIntoDarkness {
-  0%, 60% { 
+  0%, 30% { 
     /* Stays still while monster grabs them */
-    transform: translate(-50%, -50%) scale(1); opacity: 1; 
+    transform: translate(-50%, -50%) rotateY(calc(var(--angle) * -1)) rotateX(-20deg) scale(1); 
+    opacity: 1; 
   }
   100% { 
-    /* Gets dragged down and vanishes */
-    transform: translate(-50%, 20%) scale(0.5); opacity: 0; filter: blur(10px);
+    /* Pulled backward into the void */
+    transform: translate(-50%, -50%) rotateY(calc(var(--angle) * -1)) rotateX(-20deg) scale(0.2) translateY(100px); 
+    opacity: 0; filter: blur(10px);
   }
 }
 
