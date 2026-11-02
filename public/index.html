@@ -15,7 +15,6 @@
 </head>
 <body>
 
-  <!-- MENU SCREEN -->
   <div id="menu-screen" class="screen active">
     <div class="glass-panel menu-container">
       <h1 class="game-title">THE ROULETTE<br><span>2</span></h1>
@@ -40,7 +39,6 @@
     </div>
   </div>
 
-  <!-- CROPPER MODAL -->
   <div id="cropper-modal">
     <div class="cropper-container-wrapper"><img id="image-to-crop" src="" alt="Crop me"></div>
     <div class="cropper-controls">
@@ -49,7 +47,6 @@
     </div>
   </div>
 
-  <!-- LOBBY SCREEN -->
   <div id="lobby-screen" class="screen">
     <div class="glass-panel lobby-container">
       <h1 class="lobby-title">LOBBY</h1>
@@ -73,7 +70,6 @@
     </div>
   </div>
 
-  <!-- GAME SCREEN -->
   <div id="game-screen" class="screen">
     <h2 id="turn-indicator">Waiting...</h2>
     
@@ -99,7 +95,6 @@
     </div>
   </div>
 
-  <!-- Music -->
   <audio id="menu-music" loop autoplay>
     <source src="https://www.image2url.com/r2/default/audio/1793564169307-d6bfda4b-1820-4f32-9a8e-696ead87d892.mp3" type="audio/mpeg" />
   </audio>
@@ -107,7 +102,6 @@
   <script type="module">
     import { upload } from 'https://esm.sh/@vercel/blob@0.27.2/client';
 
-    // --- LOCAL STORAGE & UI SETUP ---
     const usernameInput = document.getElementById('username-input');
     const avatarPreview = document.getElementById('avatar-preview');
     const avatarPlaceholder = document.getElementById('avatar-placeholder');
@@ -145,7 +139,6 @@
         try { localStorage.setItem('roulette_username', usernameInput.value.trim()); } catch (e) {}
     });
 
-    // --- MUSIC LOGIC ---
     const audioEl = document.getElementById('menu-music');
     document.addEventListener('click', () => { 
         if (audioEl.paused) audioEl.play().catch(() => {}); 
@@ -154,7 +147,6 @@
         audioEl.play().catch(() => {}); 
     });
 
-    // --- AVATAR CROPPER & UPLOAD LOGIC ---
     let cropper;
     let originalFile = null;
     const avatarInput = document.getElementById('avatar-input');
@@ -162,6 +154,7 @@
     const cropperModal = document.getElementById('cropper-modal');
 
     avatarInput.addEventListener('change', (e) => {
+      console.log("1. File input changed");
       const file = e.target.files[0]; 
       if (!file) return;
       
@@ -169,6 +162,7 @@
       const reader = new FileReader();
       
       reader.onload = (event) => {
+        console.log("2. File read successfully");
         imageToCrop.src = event.target.result;
         cropperModal.style.display = 'flex';
         
@@ -176,6 +170,7 @@
             if (cropper) cropper.destroy();
             cropper = new Cropper(imageToCrop, { aspectRatio: 1, viewMode: 1, dragMode: 'move', autoCropArea: 1, background: false });
         } else {
+            console.warn("Cropper.js is blocked. Bypassing crop.");
             cropperModal.style.display = 'none';
             processUpload(file); 
         }
@@ -189,20 +184,24 @@
     });
 
     document.getElementById('btn-save-crop').addEventListener('click', () => {
+      console.log("3. Save Cropped button clicked");
       if (cropper && typeof Cropper !== 'undefined') {
           const canvas = cropper.getCroppedCanvas({ width: 256, height: 256 });
           canvas.toBlob((blob) => {
+              console.log("4. Blob created from crop");
               cropperModal.style.display = 'none';
               processUpload(blob);
           }, 'image/jpeg', 0.9);
       } else {
+          console.log("4. Bypassing crop, using original file");
           cropperModal.style.display = 'none';
           if (originalFile) processUpload(originalFile);
       }
     });
 
-    // The Upload Function using Client-Side Upload
     async function processUpload(fileBlob) {
+        console.log("5. Starting processUpload. Blob size:", fileBlob.size);
+        
         avatarPreview.src = URL.createObjectURL(fileBlob);
         avatarPreview.style.display = 'block'; 
         avatarPlaceholder.style.display = 'none';
@@ -211,11 +210,14 @@
         uploadBtn.disabled = true;
 
         try {
+          console.log("6. Sending request to /api/upload-avatar via SDK...");
+          
           const newBlob = await upload(`avatars/${Date.now()}-avatar.jpg`, fileBlob, {
             access: 'public',
             handleUploadUrl: '/api/upload-avatar',
           });
 
+          console.log("7. Upload Success! URL:", newBlob.url);
           window.myAvatarUrl = newBlob.url;
           try { localStorage.setItem('roulette_avatar', newBlob.url); } catch (e) {}
           
@@ -223,7 +225,7 @@
           uploadBtn.textContent = 'Uploaded ✓'; 
           uploadBtn.style.background = '#10b981';
         } catch (error) {
-          console.error("Upload Error:", error);
+          console.error("!!! UPLOAD FAILED !!!", error);
           alert('Upload failed: ' + error.message);
           uploadBtn.textContent = 'Try Again'; 
           uploadBtn.disabled = false;
