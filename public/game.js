@@ -16,6 +16,7 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
 
+// DOM Elements
 const menuScreen = document.getElementById('menu-screen');
 const lobbyScreen = document.getElementById('lobby-screen');
 const gameScreen = document.getElementById('game-screen');
@@ -29,15 +30,12 @@ const hostControls = document.getElementById('host-controls');
 const guestWaiting = document.getElementById('guest-waiting');
 const botCountInput = document.getElementById('bot-count');
 const startGameBtn = document.getElementById('start-game-btn');
-const playersContainer = document.getElementById('players-container');
+const orbit3d = document.getElementById('orbit-3d');
+const table3d = document.getElementById('table-3d');
 const turnIndicator = document.getElementById('turn-indicator');
-const eliminationOverlay = document.getElementById('elimination-overlay');
 const winnerOverlay = document.getElementById('winner-overlay');
 const winnerText = document.getElementById('winner-text');
 const backToLobbyBtn = document.getElementById('back-to-lobby-btn');
-const chatMessages = document.getElementById('chat-messages');
-const chatInput = document.getElementById('chat-input');
-const chatSendBtn = document.getElementById('chat-send-btn');
 
 let myUid = null;
 let myAvatarUrl = ''; 
@@ -108,7 +106,7 @@ function enterLobby(code) {
     const playerList = Object.keys(players).map(id => ({ id, ...players[id] }));
     isHost = (data.host === myUid);
 
-    // Update Lobby UI (Uses the non-absolute CSS classes now)
+    // Render Lobby
     lobbyPlayerList.innerHTML = playerList.map(p => `
       <div class="player-card">
         <img src="${p.avatar}" alt="${p.name}" />
@@ -116,9 +114,10 @@ function enterLobby(code) {
       </div>
     `).join('');
 
-    hostControls.style.display = isHost ? 'block' : 'none';
+    hostControls.style.display = isHost ? 'flex' : 'none';
     guestWaiting.style.display = isHost ? 'none' : 'block';
 
+    // Handle Screen Transitions
     if (data.status === 'playing' || data.status === 'finished') {
       lobbyScreen.classList.remove('active');
       gameScreen.classList.add('active');
@@ -127,48 +126,40 @@ function enterLobby(code) {
       gameScreen.classList.remove('active');
       lobbyScreen.classList.add('active');
       winnerOverlay.style.display = 'none';
-      eliminationOverlay.style.display = 'none';
-    }
-  });
-
-  onValue(ref(db, `lobbies/${code}/chat`), (snapshot) => {
-    const msgs = snapshot.val();
-    if (msgs) {
-      chatMessages.innerHTML = Object.values(msgs).map(m => `<p><strong>${m.sender}:</strong> ${m.text}</p>`).join('');
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+      table3d.classList.remove('spinning', 'vortex-active');
     }
   });
 }
-
-chatSendBtn.addEventListener('click', async () => {
-  const text = chatInput.value.trim();
-  if (!text || !currentLobbyCode || !myUsername) return;
-  await push(ref(db, `lobbies/${currentLobbyCode}/chat`), { sender: myUsername, text, timestamp: Date.now() });
-  chatInput.value = '';
-});
-chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') chatSendBtn.click(); });
 
 startGameBtn.addEventListener('click', async () => {
   const snapshot = await get(currentLobbyRef);
   const data = snapshot.val();
   const playersObj = data.players;
+  
   const humanCount = Object.keys(playersObj).filter(id => !playersObj[id].isBot).length;
   const botCount = parseInt(botCountInput.value, 10) || 0;
 
   if (humanCount + botCount > 6) return alert("Max 6 players!");
-  if (humanCount + botCount < 2) return alert("Need 2+ players!");
+  if (humanCount + botCount < 2) return alert("Need at least 2 players!");
 
   const updates = {};
   const activePlayerIds = Object.keys(playersObj);
 
+  // ADD BOTS PROPERLY
   for (let i = 0; i < botCount; i++) {
     const botId = 'bot_' + Date.now() + '_' + i;
-    updates[`players/${botId}`] = { name: `Bot ${i+1}`, avatar: 'https://cdn-icons-png.flaticon.com/512/616/616430.png', isBot: true, alive: true };
+    updates[`players/${botId}`] = { 
+        name: `Bot ${i+1}`, 
+        avatar: 'https://cdn-icons-png.flaticon.com/512/616/616430.png', 
+        isBot: true, 
+        alive: true 
+    };
     activePlayerIds.push(botId);
   }
   
   updates['status'] = 'playing';
   updates['game'] = { activePlayers: activePlayerIds, currentTurn: null, eliminated: null, winner: null };
+  
   await update(currentLobbyRef, updates);
   if (isHost) runHostGameLoop();
 });
@@ -185,69 +176,84 @@ async function runHostGameLoop() {
       return;
     }
 
-    // 1. Pick the "target" to make it look like it's spinning towards someone
+    // 1. Pick Target (Visual Spin)
     const spinPick = active[Math.floor(Math.random() * active.length)];
     await update(ref(db, `lobbies/${currentLobbyCode}/game`), { currentTurn: spinPick, eliminated: null });
     
-    // Wait for the spin animation to finish
+    // 2. Wait for the 3D spin animation (3 seconds)
     setTimeout(async () => {
-      // 2. Pick the victim (Eliminate)
       const eliminatedId = active[Math.floor(Math.random() * active.length)];
-      await update(ref(db, `lobbies/${currentLobbyCode}/game`), { eliminated: eliminatedId });
       
-      // Wait for the "suck in" animation (1.5 seconds)
+      // Trigger Vortex Animation
+      await update(ref(db, `lobbies/${currentLobbyCode}/game`), { eliminated: eliminatedId, currentTurn: null });
+      
+      // 3. Wait for the Vortex to take them (2 seconds)
       setTimeout(async () => {
-        // 3. Remove victim from active list
         active = active.filter(id => id !== eliminatedId);
-        await update(ref(db, `lobbies/${currentLobbyCode}/game`), { activePlayers: active, eliminated: null, currentTurn: null });
+        
+        // Reset and next turn
+        await update(ref(db, `lobbies/${currentLobbyCode}/game`), { activePlayers: active, eliminated: null });
         await update(ref(db, `lobbies/${currentLobbyCode}/players/${eliminatedId}`), { alive: false });
-        step(); // Run next turn
-      }, 1500); 
-    }, 2500); 
+        
+        step(); 
+      }, 2000); 
+    }, 3000); 
   };
   step();
 }
 
-// --- THE TABLE MATH ANIMATION LOGIC ---
 function updateGameUI(data, playerList) {
   const game = data.game || {};
   const totalPlayers = playerList.length;
   
-  // Calculate circle positions
-  playersContainer.innerHTML = playerList.map((p, index) => {
-    // Start at top (-90 degrees), distribute evenly
-    const angle = (index / totalPlayers) * 2 * Math.PI - (Math.PI / 2);
-    // Radius is 40% of the table
-    const x = 50 + 40 * Math.cos(angle);
-    const y = 50 + 40 * Math.sin(angle);
+  // 3D Positioning Logic
+  orbit3d.innerHTML = playerList.map((p, index) => {
+    // Angle for the circle (0 to 360)
+    const angle = (index / totalPlayers) * 360;
+    // Push players out to the edge
+    const radius = 180; 
 
     const isTurn = (p.id === game.currentTurn);
     const isDead = !p.alive;
-    const isBeingTaken = (p.id === game.eliminated); // Triggers suck in animation
+    const isBeingTaken = (p.id === game.eliminated);
 
+    // Inline style uses CSS variables to allow 3D transforms
     return `
-      <div class="player-card ${isTurn ? 'active' : ''} ${isDead ? 'eliminated' : ''} ${isBeingTaken ? 'being-taken' : ''}"
-           style="left: ${x}%; top: ${y}%;">
-        <img src="${p.avatar}" alt="${p.name}" />
-        <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
+      <div class="player-3d ${isTurn ? 'active' : ''} ${isDead ? 'eliminated' : ''} ${isBeingTaken ? 'being-taken' : ''}"
+           style="--angle: ${angle}deg; transform: rotateZ(${angle}deg) translateY(-${radius}px);">
+        <div class="card-inner">
+          <img src="${p.avatar}" alt="${p.name}" />
+          <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
+        </div>
       </div>
     `;
   }).join('');
 
-  // Update turn text
-  if (game.currentTurn && !game.eliminated) {
+  // Animation State Management
+  if (game.currentTurn) {
+    table3d.classList.add('spinning');
+    table3d.classList.remove('vortex-active');
     const p = playerList.find(x => x.id === game.currentTurn);
-    turnIndicator.textContent = `Targeting ${p ? p.name : '...'}!`;
-  } else if (game.eliminated) {
-    turnIndicator.textContent = "TAKEN!";
-  } else {
-    turnIndicator.textContent = "Spinning...";
+    turnIndicator.textContent = `Spinning for ${p ? p.name : '...'}`;
+    turnIndicator.style.color = "#f5c542"; // Yellow
+  } 
+  else if (game.eliminated) {
+    table3d.classList.remove('spinning');
+    table3d.classList.add('vortex-active');
+    turnIndicator.textContent = `TAKEN INTO THE DARKNESS!`;
+    turnIndicator.style.color = "#ff1a1a"; // Red
+  } 
+  else {
+    table3d.classList.remove('spinning', 'vortex-active');
+    turnIndicator.textContent = `Spinning...`;
+    turnIndicator.style.color = "#fff";
   }
 
   if (data.status === 'finished' && game.winner) {
+    table3d.classList.remove('spinning', 'vortex-active');
     const winnerPlayer = playerList.find(x => x.id === game.winner);
     winnerOverlay.style.display = 'flex';
-    winnerText.textContent = `CONGRATULATIONS ${winnerPlayer ? winnerPlayer.name.toUpperCase() : ''} U WON!`;
+    winnerText.textContent = `WINNER: ${winnerPlayer ? winnerPlayer.name.toUpperCase() : ''}`;
   }
 }
 
