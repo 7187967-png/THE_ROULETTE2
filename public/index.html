@@ -13,6 +13,7 @@
 </head>
 <body>
 
+  <!-- MENU SCREEN -->
   <div id="menu-screen" class="screen active">
     <div class="glass-panel menu-container">
       <h1 class="game-title">THE ROULETTE<br><span>2</span></h1>
@@ -37,6 +38,7 @@
     </div>
   </div>
 
+  <!-- CROPPER MODAL -->
   <div id="cropper-modal">
     <div class="cropper-container-wrapper"><img id="image-to-crop" src="" alt="Crop me"></div>
     <div class="cropper-controls">
@@ -45,6 +47,7 @@
     </div>
   </div>
 
+  <!-- LOBBY SCREEN -->
   <div id="lobby-screen" class="screen">
     <div class="glass-panel lobby-container">
       <h1 class="lobby-title">LOBBY</h1>
@@ -67,24 +70,21 @@
     </div>
   </div>
 
-  <!-- NEW CINEMATIC GAME SCREEN -->
+  <!-- 3D GAME SCREEN -->
   <div id="game-screen" class="screen">
     <h2 id="turn-indicator">Waiting...</h2>
     
-    <div id="cinematic-scene">
-      <!-- The dark background -->
-      <div id="void-background"></div>
+    <div id="scene">
+      <!-- The world rotates to simulate the camera spinning around the table -->
+      <div id="world">
+        
+        <!-- The brown table -->
+        <div id="table-surface"></div>
 
-      <!-- The avatars sitting in an arc -->
-      <div id="avatar-arc"></div>
+        <!-- The avatars sit on the edge of the table -->
+        <div id="avatar-ring"></div>
 
-      <!-- The massive orange table in the foreground -->
-      <div id="foreground-table">
-        <div id="table-glow"></div>
       </div>
-
-      <!-- The monster/vortex that sneaks up -->
-      <img id="monster-image" src="https://imagepaste.org/i/vpxgqzp9.png" alt="Monster" />
     </div>
 
     <div id="winner-overlay" class="overlay" style="display:none;">
@@ -101,6 +101,11 @@
     </div>
   </div>
 
+  <!-- MUSIC (RESTORED) -->
+  <audio id="menu-music" loop autoplay>
+    <source src="https://www.image2url.com/r2/default/audio/1793564169307-d6bfda4b-1820-4f32-9a8e-696ead87d892.mp3" type="audio/mpeg" />
+  </audio>
+
   <!-- UI & AVATAR LOGIC -->
   <script>
     const usernameInput = document.getElementById('username-input');
@@ -109,6 +114,15 @@
     const uploadBtn = document.getElementById('upload-btn');
     const joinBtn = document.getElementById('join-btn');
     const hostBtn = document.getElementById('host-btn');
+
+    // MUSIC LOGIC
+    const audioEl = document.getElementById('menu-music');
+    document.addEventListener('click', () => { 
+        if (audioEl.paused) audioEl.play().catch(() => {}); 
+    });
+    audioEl.addEventListener('pause', () => { 
+        audioEl.play().catch(() => {}); 
+    });
 
     let myAvatarBase64 = ''; 
 
@@ -210,7 +224,7 @@
     }
   </script>
   
-  <!-- GAME LOGIC (Inline so Vercel can't break it) -->
+  <!-- INLINE GAME LOGIC (Vercel cannot break this) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getDatabase, ref, set, push, onValue, update, onDisconnect, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
@@ -240,8 +254,6 @@
     const guestWaiting = document.getElementById('guest-waiting');
     const botCountInput = document.getElementById('bot-count');
     const startGameBtn = document.getElementById('start-game-btn');
-    const avatarArc = document.getElementById('avatar-arc');
-    const monsterImage = document.getElementById('monster-image');
     const turnIndicator = document.getElementById('turn-indicator');
     const winnerOverlay = document.getElementById('winner-overlay');
     const winnerText = document.getElementById('winner-text');
@@ -249,6 +261,9 @@
     const chatMessages = document.getElementById('chat-messages');
     const chatInput = document.getElementById('chat-input');
     const chatSendBtn = document.getElementById('chat-send-btn');
+    
+    const world = document.getElementById('world');
+    const avatarRing = document.getElementById('avatar-ring');
 
     let myUid = null;
     let currentLobbyCode = null;
@@ -319,7 +334,7 @@
           gameScreen.classList.remove('active');
           lobbyScreen.classList.add('active');
           winnerOverlay.style.display = 'none';
-          monsterImage.className = '';
+          world.style.transform = 'rotateX(20deg) rotateY(0deg)'; // Reset world
         }
       });
 
@@ -381,23 +396,23 @@
           return;
         }
 
-        // 1. Highlight target
+        // 1. Pick a target
         const spinPick = active[Math.floor(Math.random() * active.length)];
         await update(ref(db, `lobbies/${currentLobbyCode}/game`), { currentTurn: spinPick, eliminated: null });
         
-        // 2. Wait, then trigger monster sneak-up
+        // 2. Wait for the 4-second camera spin, then trigger monster
         setTimeout(async () => {
           const eliminatedId = active[Math.floor(Math.random() * active.length)];
           await update(ref(db, `lobbies/${currentLobbyCode}/game`), { eliminated: eliminatedId, currentTurn: null });
           
-          // 3. Wait for vanish animation, then reset
+          // 3. Wait 5 seconds for the monster to pull them back, then reset
           setTimeout(async () => {
             active = active.filter(id => id !== eliminatedId);
             await update(ref(db, `lobbies/${currentLobbyCode}/game`), { activePlayers: active, eliminated: null });
             await update(ref(db, `lobbies/${currentLobbyCode}/players/${eliminatedId}`), { alive: false });
             step(); 
-          }, 2500); // Animation duration
-        }, 2000); 
+          }, 5000); // 5 SECOND DELAY
+        }, 4000); 
       };
       step();
     }
@@ -406,65 +421,56 @@
       const game = data.game || {};
       const totalPlayers = playerList.length;
       
-      // Calculate Cinematic Arc Position
-      // We place them in a semi-circle above the table
-      avatarArc.innerHTML = playerList.map((p, index) => {
-        // Angles between 200 and 340 degrees (top arc)
-        const minAngle = 200;
-        const maxAngle = 340;
-        const angle = totalPlayers > 1 
-            ? minAngle + (index / (totalPlayers - 1)) * (maxAngle - minAngle) 
-            : 270; // Center if only 1 player
-
-        const radians = angle * (Math.PI / 180);
-        
-        // Radius of the arc
-        const radiusX = 300;
-        const radiusY = 120;
-        
-        // Calculate X and Y relative to center (50%)
-        const x = 50 + (Math.cos(radians) * (radiusX / 10));
-        const y = 50 + (Math.sin(radians) * (radiusY / 10));
+      // 1. Build the 3D Ring of Avatars
+      avatarRing.innerHTML = playerList.map((p, index) => {
+        const angle = (index / totalPlayers) * 360;
+        const radius = 280; // How far away they sit
 
         const isTurn = (p.id === game.currentTurn);
         const isDead = !p.alive;
         const isBeingTaken = (p.id === game.eliminated);
 
+        // We add the monster inside the avatar so it inherits the 3D position
         return `
-          <div class="cinematic-avatar ${isTurn ? 'active' : ''} ${isDead ? 'eliminated' : ''} ${isBeingTaken ? 'being-taken' : ''}"
-               style="left: ${x}%; top: ${y}%;">
-            <img src="${p.avatar}" alt="${p.name}" />
-            <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
+          <div class="avatar-3d ${isTurn ? 'active' : ''} ${isDead ? 'eliminated' : ''} ${isBeingTaken ? 'being-taken' : ''}"
+               style="--angle: ${angle}deg; transform: rotateY(${angle}deg) translateZ(${radius}px);">
+            <div class="card-inner">
+              <img src="${p.avatar}" alt="${p.name}" />
+              <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
+            </div>
+            <!-- The monster appears behind the victim -->
+            ${isBeingTaken ? `<img class="monster" src="https://imagepaste.org/i/vpxgqzp9.png" alt="Monster">` : ''}
           </div>
         `;
       }).join('');
 
-      // Trigger Monster Animation
-      if (game.eliminated) {
-        // Find where the victim is
-        const victimElement = document.querySelector(`.cinematic-avatar.being-taken`);
-        if (victimElement) {
-            const rect = victimElement.getBoundingClientRect();
-            // Move monster behind them
-            monsterImage.style.left = `${rect.left + rect.width/2}px`;
-            monsterImage.style.top = `${rect.top + rect.height/2}px`;
-            monsterImage.className = 'sneak-attack';
-        }
+      // 2. Handle Camera Spin
+      if (game.currentTurn) {
+        // Find the index of the chosen player to calculate rotation
+        const targetIndex = playerList.findIndex(p => p.id === game.currentTurn);
+        // Rotate the world so the chosen player is at the front (0 degrees)
+        const targetAngle = -(targetIndex / totalPlayers) * 360;
+        // Add 4 full spins (1440) to make it look like a camera spinning around
+        const totalRotation = (360 * 4) + targetAngle; 
+
+        // We use a CSS transition on #world to handle this smooth 4s spin
+        world.style.transition = 'transform 4s cubic-bezier(0.2, 0.8, 0.2, 1)';
+        world.style.transform = `rotateX(20deg) rotateY(${totalRotation}deg)`;
+        
+        turnIndicator.textContent = `Spinning...`;
+        turnIndicator.style.color = "#f5c542";
+      } 
+      else if (game.eliminated) {
+        world.style.transition = 'none'; // Stop spinning
         turnIndicator.textContent = `TAKEN INTO THE DARKNESS!`;
         turnIndicator.style.color = "#ff1a1a";
-      } else if (game.currentTurn) {
-        monsterImage.className = '';
-        const p = playerList.find(x => x.id === game.currentTurn);
-        turnIndicator.textContent = `Spinning for ${p ? p.name : '...'}`;
-        turnIndicator.style.color = "#f5c542";
-      } else {
-        monsterImage.className = '';
+      } 
+      else {
         turnIndicator.textContent = `Spinning...`;
         turnIndicator.style.color = "#fff";
       }
 
       if (data.status === 'finished' && game.winner) {
-        monsterImage.className = '';
         const winnerPlayer = playerList.find(x => x.id === game.winner);
         winnerOverlay.style.display = 'flex';
         winnerText.textContent = `WINNER: ${winnerPlayer ? winnerPlayer.name.toUpperCase() : ''}`;
