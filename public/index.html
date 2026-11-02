@@ -13,6 +13,7 @@
 </head>
 <body>
 
+  <!-- MENU SCREEN -->
   <div id="menu-screen" class="screen active">
     <div class="glass-panel menu-container">
       <h1 class="game-title">THE ROULETTE<br><span>2</span></h1>
@@ -37,6 +38,7 @@
     </div>
   </div>
 
+  <!-- CROPPER MODAL -->
   <div id="cropper-modal">
     <div class="cropper-container-wrapper"><img id="image-to-crop" src="" alt="Crop me"></div>
     <div class="cropper-controls">
@@ -45,6 +47,7 @@
     </div>
   </div>
 
+  <!-- LOBBY SCREEN -->
   <div id="lobby-screen" class="screen">
     <div class="glass-panel lobby-container">
       <h1 class="lobby-title">LOBBY</h1>
@@ -67,13 +70,15 @@
     </div>
   </div>
 
+  <!-- GAME SCREEN -->
   <div id="game-screen" class="screen">
     <h2 id="turn-indicator">Waiting...</h2>
     
     <div id="cinematic-scene">
+      <!-- The dark background void -->
       <div id="void-background"></div>
 
-      <!-- The circular track -->
+      <!-- The circular track that spins behind the table -->
       <div id="carousel">
         <div id="avatar-ring"></div>
       </div>
@@ -96,6 +101,7 @@
     </div>
   </div>
 
+  <!-- MUSIC -->
   <audio id="menu-music" loop autoplay>
     <source src="https://www.image2url.com/r2/default/audio/1793564169307-d6bfda4b-1820-4f32-9a8e-696ead87d892.mp3" type="audio/mpeg" />
   </audio>
@@ -388,11 +394,11 @@
         const chosenVictim = active[Math.floor(Math.random() * active.length)];
         await update(ref(db, `lobbies/${currentLobbyCode}/game`), { currentTurn: chosenVictim, eliminated: null });
         
-        // 2. Wait for spin to end, then the EXACT SAME GUY gets taken
+        // 2. Wait for spin to end (5s), then the EXACT SAME GUY gets taken
         setTimeout(async () => {
           await update(ref(db, `lobbies/${currentLobbyCode}/game`), { eliminated: chosenVictim, currentTurn: null });
           
-          // 3. Wait 5 seconds for the monster to finish taking them
+          // 3. Wait 5 seconds for the monster to finish taking them, then reset
           setTimeout(async () => {
             active = active.filter(id => id !== chosenVictim);
             await update(ref(db, `lobbies/${currentLobbyCode}/game`), { activePlayers: active, eliminated: null });
@@ -408,8 +414,7 @@
       const game = data.game || {};
       const totalPlayers = playerList.length;
       
-      // Calculate the initial offset so the spin starts from the left and ends at the right
-      // We rotate the whole ring by -90deg so the avatars visually appear on the top arc.
+      // Start at -90 degrees (Left edge)
       const startAngle = -90;
 
       // 1. Build Avatars
