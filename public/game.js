@@ -16,7 +16,6 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
 
-// DOM Elements
 const menuScreen = document.getElementById('menu-screen');
 const lobbyScreen = document.getElementById('lobby-screen');
 const gameScreen = document.getElementById('game-screen');
@@ -45,7 +44,6 @@ let currentLobbyCode = null;
 let currentLobbyRef = null;
 let isHost = false;
 
-// Disable buttons until auth and avatar are ready
 hostBtn.disabled = true;
 joinBtn.disabled = true;
 
@@ -53,7 +51,6 @@ signInAnonymously(auth).catch((error) => console.error("Auth error:", error));
 onAuthStateChanged(auth, (user) => {
   if (user) {
     myUid = user.uid;
-    // Re-check avatar and username from localStorage
     if (window.myAvatarUrl && usernameInput.value.trim() !== '') {
         hostBtn.disabled = false;
         joinBtn.disabled = false;
@@ -69,7 +66,6 @@ const checkUserDetails = () => {
     return true;
 };
 
-// Re-enable buttons if user types name after avatar is uploaded
 usernameInput.addEventListener('input', () => {
     if (window.myAvatarUrl && usernameInput.value.trim() !== '' && myUid) {
         hostBtn.disabled = false;
@@ -124,7 +120,6 @@ function enterLobby(code) {
     const playerList = Object.keys(players).map(id => ({ id, ...players[id] }));
     isHost = (data.host === myUid);
 
-    // Render Lobby
     lobbyPlayerList.innerHTML = playerList.map(p => `
       <div class="player-card">
         <img src="${p.avatar}" alt="${p.name}" />
@@ -135,7 +130,6 @@ function enterLobby(code) {
     hostControls.style.display = isHost ? 'flex' : 'none';
     guestWaiting.style.display = isHost ? 'none' : 'block';
 
-    // Handle Screen Transitions
     if (data.status === 'playing' || data.status === 'finished') {
       lobbyScreen.classList.remove('active');
       gameScreen.classList.add('active');
