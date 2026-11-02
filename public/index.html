@@ -29,7 +29,8 @@
         <button id="upload-btn" class="btn btn-upload" disabled>Upload Avatar</button>
       </div>
 
-      <input type="text" id="username-input" placeholder="ENTER YOUR NAME" maxlength="12" class="name-input" />
+      <!-- Changed maxlength to 30 -->
+      <input type="text" id="username-input" placeholder="ENTER YOUR NAME" maxlength="30" class="name-input" />
       
       <div class="divider"><span>OR</span></div>
 
@@ -73,19 +74,14 @@
     </div>
   </div>
 
-  <!-- 3D GAME SCREEN -->
+  <!-- GAME SCREEN -->
   <div id="game-screen" class="screen">
     <h2 id="turn-indicator">Waiting...</h2>
     
-    <!-- The 3D Scene -->
     <div id="scene">
       <div id="table-3d">
-        <!-- The Darkness/Vortex Base -->
         <div id="vortex-base"></div>
-        <!-- The Taking Image (Sneaks up in 3D) -->
         <img id="vortex-image" src="https://imagepaste.org/i/vpxgqzp9.png" alt="Vortex" />
-        
-        <!-- The Players in 3D Space -->
         <div id="orbit-3d"></div>
       </div>
     </div>
@@ -110,6 +106,53 @@
   </audio>
 
   <script>
+    // --- LOCAL STORAGE & UI SETUP ---
+    const usernameInput = document.getElementById('username-input');
+    const avatarPreview = document.getElementById('avatar-preview');
+    const avatarPlaceholder = document.getElementById('avatar-placeholder');
+    const uploadBtn = document.getElementById('upload-btn');
+    const joinBtn = document.getElementById('join-btn');
+    const hostBtn = document.getElementById('host-btn');
+
+    // Helper to enable buttons if avatar is ready
+    function checkButtons() {
+        if (window.myAvatarUrl) {
+            joinBtn.disabled = false;
+            hostBtn.disabled = false;
+        } else {
+            joinBtn.disabled = true;
+            hostBtn.disabled = true;
+        }
+    }
+
+    // Load saved data from previous visits
+    try {
+        const savedName = localStorage.getItem('roulette_username');
+        if (savedName) {
+            usernameInput.value = savedName;
+        }
+
+        const savedAvatar = localStorage.getItem('roulette_avatar');
+        if (savedAvatar) {
+            window.myAvatarUrl = savedAvatar;
+            avatarPreview.src = savedAvatar;
+            avatarPreview.style.display = 'block';
+            avatarPlaceholder.style.display = 'none';
+            uploadBtn.textContent = 'Uploaded ✓';
+            uploadBtn.style.background = '#10b981';
+            checkButtons();
+        }
+    } catch (e) {
+        console.warn("Local storage is blocked by browser settings.");
+    }
+
+    // Save username as they type
+    usernameInput.addEventListener('input', () => {
+        try {
+            localStorage.setItem('roulette_username', usernameInput.value.trim());
+        } catch (e) {}
+    });
+
     // --- MUSIC LOGIC ---
     const audioEl = document.getElementById('menu-music');
     document.addEventListener('click', () => { 
@@ -121,21 +164,31 @@
 
     // --- AVATAR CROPPER & UPLOAD LOGIC ---
     let cropper;
+    let originalFile = null; 
     const avatarInput = document.getElementById('avatar-input');
     const imageToCrop = document.getElementById('image-to-crop');
     const cropperModal = document.getElementById('cropper-modal');
-    const avatarPreview = document.getElementById('avatar-preview');
-    const uploadBtn = document.getElementById('upload-btn');
 
     avatarInput.addEventListener('change', (e) => {
       const file = e.target.files[0]; 
       if (!file) return;
+      
+      originalFile = file;
       const reader = new FileReader();
+      
       reader.onload = (event) => {
         imageToCrop.src = event.target.result;
         cropperModal.style.display = 'flex';
-        if (cropper) cropper.destroy();
-        cropper = new Cropper(imageToCrop, { aspectRatio: 1, viewMode: 1, dragMode: 'move', autoCropArea: 1, background: false });
+        
+        // Check if Cropper is loaded (prevents crashing if blocked by tracking prevention)
+        if (typeof Cropper !== 'undefined') {
+            if (cropper) cropper.destroy();
+            cropper = new Cropper(imageToCrop, { aspectRatio: 1, viewMode: 1, dragMode: 'move', autoCropArea: 1, background: false });
+        } else {
+            console.warn("Cropper.js is blocked. Bypassing crop.");
+            cropperModal.style.display = 'none';
+            processUpload(file); // Upload the raw file directly
+        }
       };
       reader.readAsDataURL(file);
     });
@@ -146,70 +199,60 @@
     });
 
     document.getElementById('btn-save-crop').addEventListener('click', () => {
-      console.log("Save Avatar button clicked.");
-      
-      if (!cropper) {
-          console.error("Cropper not initialized!");
-          return alert("Error: Image not loaded properly.");
+      if (cropper && typeof Cropper !== 'undefined') {
+          const canvas = cropper.getCroppedCanvas({ width: 256, height: 256 });
+          canvas.toBlob((blob) => {
+              cropperModal.style.display = 'none';
+              processUpload(blob);
+          }, 'image/jpeg', 0.9);
+      } else {
+          cropperModal.style.display = 'none';
+          if (originalFile) processUpload(originalFile);
       }
-      
-      const canvas = cropper.getCroppedCanvas({ width: 256, height: 256 });
-      
-      if (!canvas) {
-          console.error("Canvas is null!");
-          return alert("Error: Could not crop image.");
-      }
+    });
 
-      canvas.toBlob(async (blob) => {
-        console.log("Image converted to blob. Size:", blob.size, "bytes");
-        
-        cropperModal.style.display = 'none';
-        avatarPreview.src = URL.createObjectURL(blob);
+    // The Upload Function
+    async function processUpload(fileBlob) {
+        avatarPreview.src = URL.createObjectURL(fileBlob);
         avatarPreview.style.display = 'block'; 
-        document.getElementById('avatar-placeholder').style.display = 'none';
+        avatarPlaceholder.style.display = 'none';
         
         uploadBtn.textContent = 'Uploading...'; 
         uploadBtn.disabled = true;
 
         const formData = new FormData(); 
-        formData.append('avatar', blob, 'avatar.jpg');
+        formData.append('avatar', fileBlob, 'avatar.jpg');
         
         try {
-          console.log("Sending fetch request to /api/upload-avatar...");
           const res = await fetch('/api/upload-avatar', { method: 'POST', body: formData });
-          
-          console.log("Response status:", res.status);
-          
-          // Check if the response is JSON before parsing (prevents Vercel HTML crash errors)
           const contentType = res.headers.get("content-type");
+          
           if (!contentType || !contentType.includes("application/json")) {
-              const text = await res.text();
-              throw new Error("Server returned HTML instead of JSON. Did the Vercel function crash? " + text.substring(0, 50));
+              throw new Error("Server error (Vercel likely crashed). Check your Vercel logs.");
           }
 
           const data = await res.json();
           
           if (res.ok && data.url) {
-            console.log("Upload successful! URL:", data.url);
             window.myAvatarUrl = data.url; 
-            document.getElementById('join-btn').disabled = false;
-            document.getElementById('host-btn').disabled = false;
+            
+            // Save to local storage so they don't have to upload again
+            try { localStorage.setItem('roulette_avatar', data.url); } catch (e) {}
+            
+            checkButtons();
             uploadBtn.textContent = 'Uploaded ✓'; 
             uploadBtn.style.background = '#10b981';
           } else {
-            console.error("Server error:", data.error);
             alert('Upload failed: ' + (data.error || 'Unknown error'));
             uploadBtn.textContent = 'Try Again'; 
             uploadBtn.disabled = false;
           }
         } catch (err) { 
-          console.error("Network or Parsing Error:", err); 
           alert('Error: ' + err.message); 
           uploadBtn.textContent = 'Try Again'; 
           uploadBtn.disabled = false; 
         }
-      }, 'image/jpeg', 0.9);
-    });
+    }
   </script>
   
   <!-- Frontend Game Logic -->
