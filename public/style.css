@@ -76,9 +76,10 @@ body {
   z-index: 1;
 }
 
+/* The carousel wheel */
 #carousel {
   position: absolute;
-  top: 100vh; /* Push center down to create a top arc */
+  top: 90vh; /* Center pushed down to create a gentle top arc */
   left: 50%;
   width: 0; height: 0;
   z-index: 5;
@@ -93,7 +94,7 @@ body {
   top: 0; left: 0;
   transform-origin: center center;
   display: flex; flex-direction: column; align-items: center;
-  transform: rotate(calc(var(--angle) * 1deg)) translateY(-550px);
+  transform: rotate(calc(var(--angle) * 1deg)) translateY(-450px);
 }
 
 /* LAYER 2: Forces the Avatar to stay perfectly straight */
@@ -101,8 +102,6 @@ body {
   position: relative;
   display: flex; flex-direction: column; align-items: center;
   transform-origin: center center;
-  /* The JS will update this during the spin */
-  transform: rotate(var(--inv-angle));
 }
 
 /* LAYER 3: Handles the pulling animation without messing up rotation */
@@ -129,11 +128,11 @@ body {
 .avatar-node.active .avatar-image { border-color: #f5c542; box-shadow: 0 0 40px #f5c542; }
 .avatar-node.eliminated { opacity: 0.1; filter: grayscale(1); }
 
-/* MASSIVE BROWN TABLE */
+/* SMALLER MASSIVE BROWN TABLE (So spin is visible) */
 #foreground-table {
   position: absolute;
-  bottom: -10%; left: -25%;
-  width: 150%; height: 65%;
+  bottom: -5%; left: -10%;
+  width: 120%; height: 40%; /* Smaller height so avatars can be seen */
   background: radial-gradient(ellipse at top, #8c5a35 0%, #5c341c 40%, #261207 100%);
   border-radius: 50% 50% 0 0;
   box-shadow: 0 -20px 80px rgba(0,0,0,0.9);
@@ -142,7 +141,7 @@ body {
 }
 
 /* =========================================
-   THE MONSTER (Full Image, No Circle)
+   THE MONSTER (Full Image, No Rotation)
    ========================================= */
 .monster {
   position: absolute;
@@ -166,6 +165,7 @@ body {
 }
 
 .avatar-node.being-taken .card-anim {
+  /* ONLY translate and scale, NO rotation */
   animation: draggedIntoDarkness 5s forwards;
 }
 
@@ -177,8 +177,17 @@ body {
 }
 
 @keyframes draggedIntoDarkness {
-  0%, 30% { opacity: 1; translate: 0 0; scale: 1; }
-  100% { opacity: 0; translate: 250px 0; scale: 0.2; filter: blur(10px); }
+  0%, 30% { 
+    opacity: 1; 
+    translate: 0 0; 
+    scale: 1; 
+  }
+  100% { 
+    opacity: 0; 
+    translate: 250px 0; 
+    scale: 0.2; 
+    filter: blur(10px); 
+  }
 }
 
 /* Overlays & Chat */
