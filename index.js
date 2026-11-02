@@ -1,42 +1,30 @@
 const express = require('express');
-const multer = require('multer');
 const path = require('path');
-const { put } = require('@vercel/blob'); 
+const { handleUpload } = require('@vercel/blob/client');
 
 const app = express();
-
-const upload = multer({ 
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 4 * 1024 * 1024 } // Limit to 4MB to stay under Vercel's limit
-});
-
+app.use(express.json()); 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.post('/api/upload-avatar', upload.single('avatar'), async (req, res) => {
-  console.log("--- UPLOAD REQUEST RECEIVED ---");
+app.post('/api/upload-avatar', async (req, res) => {
   try {
-    if (!req.file) {
-      console.log("ERROR: No file found in request.");
-      return res.status(400).json({ error: 'No file uploaded.' });
-    }
-
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      console.log("ERROR: BLOB_READ_WRITE_TOKEN is missing in Vercel settings.");
-      return res.status(500).json({ error: 'Server configuration error: Missing Token.' });
-    }
-
-    console.log("Uploading to Vercel Blob...");
-    const blob = await put(`avatars/${Date.now()}-avatar.jpg`, req.file.buffer, {
-      access: 'public',
-      token: process.env.BLOB_READ_WRITE_TOKEN, 
+    const jsonResponse = await handleUpload({
+      body: req.body,
+      request: req,
+      onBeforeGenerateToken: async (pathname) => {
+        return {
+          allowedContentTypes: ['image/jpeg', 'image/png', 'image/gif'],
+          maximumSizeInBytes: 5 * 1024 * 1024, // 5MB limit
+        };
+      },
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        console.log('Upload completed:', blob.url);
+      },
     });
-
-    console.log("SUCCESS: Uploaded to", blob.url);
-    res.json({ url: blob.url });
-
+    return res.status(200).json(jsonResponse);
   } catch (error) {
-    console.error('UPLOAD ERROR DETAILS:', error);
-    res.status(500).json({ error: error.message || 'Upload failed.' });
+    console.error('Token generation error:', error);
+    return res.status(400).json({ error: error.message });
   }
 });
 
