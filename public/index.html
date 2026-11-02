@@ -70,21 +70,25 @@
     </div>
   </div>
 
-  <!-- 3D GAME SCREEN -->
+  <!-- CINEMATIC GAME SCREEN -->
   <div id="game-screen" class="screen">
     <h2 id="turn-indicator">Waiting...</h2>
     
-    <div id="scene">
-      <!-- The world rotates to simulate the camera spinning around the table -->
+    <div id="cinematic-scene">
+      
+      <!-- The background void -->
+      <div id="void-background"></div>
+
+      <!-- The spinning camera/world -->
       <div id="world">
-        
-        <!-- The brown table -->
-        <div id="table-surface"></div>
-
-        <!-- The avatars sit on the edge of the table -->
         <div id="avatar-ring"></div>
-
       </div>
+
+      <!-- The massive brown table (Stays fixed in foreground) -->
+      <div id="foreground-table">
+        <div id="table-edge"></div>
+      </div>
+
     </div>
 
     <div id="winner-overlay" class="overlay" style="display:none;">
@@ -101,12 +105,12 @@
     </div>
   </div>
 
-  <!-- MUSIC (RESTORED) -->
+  <!-- MUSIC -->
   <audio id="menu-music" loop autoplay>
     <source src="https://www.image2url.com/r2/default/audio/1793564169307-d6bfda4b-1820-4f32-9a8e-696ead87d892.mp3" type="audio/mpeg" />
   </audio>
 
-  <!-- UI & AVATAR LOGIC -->
+  <!-- UI LOGIC -->
   <script>
     const usernameInput = document.getElementById('username-input');
     const avatarPreview = document.getElementById('avatar-preview');
@@ -115,14 +119,9 @@
     const joinBtn = document.getElementById('join-btn');
     const hostBtn = document.getElementById('host-btn');
 
-    // MUSIC LOGIC
     const audioEl = document.getElementById('menu-music');
-    document.addEventListener('click', () => { 
-        if (audioEl.paused) audioEl.play().catch(() => {}); 
-    });
-    audioEl.addEventListener('pause', () => { 
-        audioEl.play().catch(() => {}); 
-    });
+    document.addEventListener('click', () => { if (audioEl.paused) audioEl.play().catch(() => {}); });
+    audioEl.addEventListener('pause', () => { audioEl.play().catch(() => {}); });
 
     let myAvatarBase64 = ''; 
 
@@ -166,18 +165,11 @@
     avatarInput.addEventListener('change', (e) => {
       const file = e.target.files[0]; 
       if (!file) return;
-      
       originalFile = file;
       const reader = new FileReader();
-      
       reader.onload = (event) => {
         imageToCrop.src = event.target.result;
-        
-        if (typeof Cropper === 'undefined') {
-            processUpload(file); 
-            return;
-        }
-
+        if (typeof Cropper === 'undefined') { processUpload(file); return; }
         cropperModal.style.display = 'flex';
         if (cropper) cropper.destroy();
         cropper = new Cropper(imageToCrop, { aspectRatio: 1, viewMode: 1, dragMode: 'move', autoCropArea: 1, background: false });
@@ -186,8 +178,7 @@
     });
 
     document.getElementById('btn-cancel-crop').addEventListener('click', () => { 
-        cropperModal.style.display = 'none'; 
-        avatarInput.value = ''; 
+        cropperModal.style.display = 'none'; avatarInput.value = ''; 
     });
 
     document.getElementById('btn-save-crop').addEventListener('click', () => {
@@ -224,7 +215,7 @@
     }
   </script>
   
-  <!-- INLINE GAME LOGIC (Vercel cannot break this) -->
+  <!-- GAME LOGIC -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getDatabase, ref, set, push, onValue, update, onDisconnect, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
@@ -334,7 +325,8 @@
           gameScreen.classList.remove('active');
           lobbyScreen.classList.add('active');
           winnerOverlay.style.display = 'none';
-          world.style.transform = 'rotateX(20deg) rotateY(0deg)'; // Reset world
+          world.style.transition = 'none';
+          world.style.transform = 'rotateY(0deg)'; 
         }
       });
 
@@ -396,11 +388,11 @@
           return;
         }
 
-        // 1. Pick a target
+        // 1. Start slow spin (5 seconds)
         const spinPick = active[Math.floor(Math.random() * active.length)];
         await update(ref(db, `lobbies/${currentLobbyCode}/game`), { currentTurn: spinPick, eliminated: null });
         
-        // 2. Wait for the 4-second camera spin, then trigger monster
+        // 2. Wait for spin to finish, trigger Monster
         setTimeout(async () => {
           const eliminatedId = active[Math.floor(Math.random() * active.length)];
           await update(ref(db, `lobbies/${currentLobbyCode}/game`), { eliminated: eliminatedId, currentTurn: null });
@@ -412,7 +404,7 @@
             await update(ref(db, `lobbies/${currentLobbyCode}/players/${eliminatedId}`), { alive: false });
             step(); 
           }, 5000); // 5 SECOND DELAY
-        }, 4000); 
+        }, 5000); // 5 SECOND SPIN
       };
       step();
     }
@@ -421,16 +413,16 @@
       const game = data.game || {};
       const totalPlayers = playerList.length;
       
-      // 1. Build the 3D Ring of Avatars
+      // 1. Build the avatars
       avatarRing.innerHTML = playerList.map((p, index) => {
-        const angle = (index / totalPlayers) * 360;
-        const radius = 280; // How far away they sit
+        // Place them in a 180-degree semi-circle behind the table
+        const angle = (index / totalPlayers) * 360; 
+        const radius = 380; // Distance from center
 
         const isTurn = (p.id === game.currentTurn);
         const isDead = !p.alive;
         const isBeingTaken = (p.id === game.eliminated);
 
-        // We add the monster inside the avatar so it inherits the 3D position
         return `
           <div class="avatar-3d ${isTurn ? 'active' : ''} ${isDead ? 'eliminated' : ''} ${isBeingTaken ? 'being-taken' : ''}"
                style="--angle: ${angle}deg; transform: rotateY(${angle}deg) translateZ(${radius}px);">
@@ -438,24 +430,22 @@
               <img src="${p.avatar}" alt="${p.name}" />
               <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
             </div>
-            <!-- The monster appears behind the victim -->
             ${isBeingTaken ? `<img class="monster" src="https://imagepaste.org/i/vpxgqzp9.png" alt="Monster">` : ''}
           </div>
         `;
       }).join('');
 
-      // 2. Handle Camera Spin
+      // 2. Camera Spin Math
       if (game.currentTurn) {
-        // Find the index of the chosen player to calculate rotation
         const targetIndex = playerList.findIndex(p => p.id === game.currentTurn);
-        // Rotate the world so the chosen player is at the front (0 degrees)
-        const targetAngle = -(targetIndex / totalPlayers) * 360;
-        // Add 4 full spins (1440) to make it look like a camera spinning around
-        const totalRotation = (360 * 4) + targetAngle; 
+        // Calculate how much to rotate so the target ends up at the bottom center (0 degrees)
+        const targetAngle = (targetIndex / totalPlayers) * 360;
+        // Rotate 3 full times (1080) plus the target angle. 
+        // We rotate backwards so it lands on the correct avatar.
+        const totalRotation = -(360 * 3) - targetAngle; 
 
-        // We use a CSS transition on #world to handle this smooth 4s spin
-        world.style.transition = 'transform 4s cubic-bezier(0.2, 0.8, 0.2, 1)';
-        world.style.transform = `rotateX(20deg) rotateY(${totalRotation}deg)`;
+        world.style.transition = 'transform 5s cubic-bezier(0.1, 0.8, 0.1, 1)';
+        world.style.transform = `rotateY(${totalRotation}deg)`;
         
         turnIndicator.textContent = `Spinning...`;
         turnIndicator.style.color = "#f5c542";
