@@ -29,7 +29,6 @@
         <button id="upload-btn" class="btn btn-upload" disabled>Upload Avatar</button>
       </div>
 
-      <!-- Changed maxlength to 30 -->
       <input type="text" id="username-input" placeholder="ENTER YOUR NAME" maxlength="30" class="name-input" />
       
       <div class="divider"><span>OR</span></div>
@@ -105,7 +104,9 @@
     <source src="https://www.image2url.com/r2/default/audio/1793564169307-d6bfda4b-1820-4f32-9a8e-696ead87d892.mp3" type="audio/mpeg" />
   </audio>
 
-  <script>
+  <script type="module">
+    import { upload } from 'https://esm.sh/@vercel/blob@0.27.2/client';
+
     // --- LOCAL STORAGE & UI SETUP ---
     const usernameInput = document.getElementById('username-input');
     const avatarPreview = document.getElementById('avatar-preview');
@@ -114,7 +115,6 @@
     const joinBtn = document.getElementById('join-btn');
     const hostBtn = document.getElementById('host-btn');
 
-    // Helper to enable buttons if avatar is ready
     function checkButtons() {
         if (window.myAvatarUrl) {
             joinBtn.disabled = false;
@@ -125,12 +125,9 @@
         }
     }
 
-    // Load saved data from previous visits
     try {
         const savedName = localStorage.getItem('roulette_username');
-        if (savedName) {
-            usernameInput.value = savedName;
-        }
+        if (savedName) usernameInput.value = savedName;
 
         const savedAvatar = localStorage.getItem('roulette_avatar');
         if (savedAvatar) {
@@ -142,15 +139,10 @@
             uploadBtn.style.background = '#10b981';
             checkButtons();
         }
-    } catch (e) {
-        console.warn("Local storage is blocked by browser settings.");
-    }
+    } catch (e) {}
 
-    // Save username as they type
     usernameInput.addEventListener('input', () => {
-        try {
-            localStorage.setItem('roulette_username', usernameInput.value.trim());
-        } catch (e) {}
+        try { localStorage.setItem('roulette_username', usernameInput.value.trim()); } catch (e) {}
     });
 
     // --- MUSIC LOGIC ---
@@ -164,7 +156,7 @@
 
     // --- AVATAR CROPPER & UPLOAD LOGIC ---
     let cropper;
-    let originalFile = null; 
+    let originalFile = null;
     const avatarInput = document.getElementById('avatar-input');
     const imageToCrop = document.getElementById('image-to-crop');
     const cropperModal = document.getElementById('cropper-modal');
@@ -180,14 +172,12 @@
         imageToCrop.src = event.target.result;
         cropperModal.style.display = 'flex';
         
-        // Check if Cropper is loaded (prevents crashing if blocked by tracking prevention)
         if (typeof Cropper !== 'undefined') {
             if (cropper) cropper.destroy();
             cropper = new Cropper(imageToCrop, { aspectRatio: 1, viewMode: 1, dragMode: 'move', autoCropArea: 1, background: false });
         } else {
-            console.warn("Cropper.js is blocked. Bypassing crop.");
             cropperModal.style.display = 'none';
-            processUpload(file); // Upload the raw file directly
+            processUpload(file); 
         }
       };
       reader.readAsDataURL(file);
@@ -211,7 +201,7 @@
       }
     });
 
-    // The Upload Function
+    // The Upload Function using Client-Side Upload
     async function processUpload(fileBlob) {
         avatarPreview.src = URL.createObjectURL(fileBlob);
         avatarPreview.style.display = 'block'; 
@@ -220,42 +210,27 @@
         uploadBtn.textContent = 'Uploading...'; 
         uploadBtn.disabled = true;
 
-        const formData = new FormData(); 
-        formData.append('avatar', fileBlob, 'avatar.jpg');
-        
         try {
-          const res = await fetch('/api/upload-avatar', { method: 'POST', body: formData });
-          const contentType = res.headers.get("content-type");
-          
-          if (!contentType || !contentType.includes("application/json")) {
-              throw new Error("Server error (Vercel likely crashed). Check your Vercel logs.");
-          }
+          const newBlob = await upload(`avatars/${Date.now()}-avatar.jpg`, fileBlob, {
+            access: 'public',
+            handleUploadUrl: '/api/upload-avatar',
+          });
 
-          const data = await res.json();
+          window.myAvatarUrl = newBlob.url;
+          try { localStorage.setItem('roulette_avatar', newBlob.url); } catch (e) {}
           
-          if (res.ok && data.url) {
-            window.myAvatarUrl = data.url; 
-            
-            // Save to local storage so they don't have to upload again
-            try { localStorage.setItem('roulette_avatar', data.url); } catch (e) {}
-            
-            checkButtons();
-            uploadBtn.textContent = 'Uploaded ✓'; 
-            uploadBtn.style.background = '#10b981';
-          } else {
-            alert('Upload failed: ' + (data.error || 'Unknown error'));
-            uploadBtn.textContent = 'Try Again'; 
-            uploadBtn.disabled = false;
-          }
-        } catch (err) { 
-          alert('Error: ' + err.message); 
+          checkButtons();
+          uploadBtn.textContent = 'Uploaded ✓'; 
+          uploadBtn.style.background = '#10b981';
+        } catch (error) {
+          console.error("Upload Error:", error);
+          alert('Upload failed: ' + error.message);
           uploadBtn.textContent = 'Try Again'; 
-          uploadBtn.disabled = false; 
+          uploadBtn.disabled = false;
         }
     }
   </script>
   
-  <!-- Frontend Game Logic -->
   <script type="module" src="game.js"></script>
 </body>
 </html>
