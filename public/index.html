@@ -67,15 +67,24 @@
     </div>
   </div>
 
+  <!-- NEW CINEMATIC GAME SCREEN -->
   <div id="game-screen" class="screen">
     <h2 id="turn-indicator">Waiting...</h2>
     
-    <div id="scene">
-      <div id="table-3d">
-        <div id="vortex-base"></div>
-        <img id="vortex-image" src="https://imagepaste.org/i/vpxgqzp9.png" alt="Vortex" />
-        <div id="orbit-3d"></div>
+    <div id="cinematic-scene">
+      <!-- The dark background -->
+      <div id="void-background"></div>
+
+      <!-- The avatars sitting in an arc -->
+      <div id="avatar-arc"></div>
+
+      <!-- The massive orange table in the foreground -->
+      <div id="foreground-table">
+        <div id="table-glow"></div>
       </div>
+
+      <!-- The monster/vortex that sneaks up -->
+      <img id="monster-image" src="https://imagepaste.org/i/vpxgqzp9.png" alt="Monster" />
     </div>
 
     <div id="winner-overlay" class="overlay" style="display:none;">
@@ -92,8 +101,8 @@
     </div>
   </div>
 
+  <!-- UI & AVATAR LOGIC -->
   <script>
-    // --- UI & AVATAR LOGIC ---
     const usernameInput = document.getElementById('username-input');
     const avatarPreview = document.getElementById('avatar-preview');
     const avatarPlaceholder = document.getElementById('avatar-placeholder');
@@ -101,7 +110,7 @@
     const joinBtn = document.getElementById('join-btn');
     const hostBtn = document.getElementById('host-btn');
 
-    let myAvatarBase64 = ''; // Stored as Base64 instead of a URL
+    let myAvatarBase64 = ''; 
 
     function checkButtons() {
         if (myAvatarBase64 && usernameInput.value.trim() !== '') {
@@ -151,7 +160,6 @@
         imageToCrop.src = event.target.result;
         
         if (typeof Cropper === 'undefined') {
-            alert("Editor blocked. Using original image.");
             processUpload(file); 
             return;
         }
@@ -170,7 +178,6 @@
 
     document.getElementById('btn-save-crop').addEventListener('click', () => {
       if (cropper && typeof Cropper !== 'undefined') {
-          // Compress to 128x128 jpeg to save space in the database
           const canvas = cropper.getCroppedCanvas({ width: 128, height: 128 });
           const base64String = canvas.toDataURL('image/jpeg', 0.8);
           cropperModal.style.display = 'none';
@@ -181,7 +188,6 @@
       }
     });
 
-    // Converts file to base64 and sets UI
     function processUpload(fileOrBase64) {
         if (typeof fileOrBase64 === 'string') {
             finishUpload(fileOrBase64);
@@ -197,9 +203,7 @@
         avatarPreview.src = base64;
         avatarPreview.style.display = 'block'; 
         avatarPlaceholder.style.display = 'none';
-        
         try { localStorage.setItem('roulette_avatar_base64', base64); } catch (e) {}
-        
         checkButtons();
         uploadBtn.textContent = 'Uploaded ✓'; 
         uploadBtn.style.background = '#10b981';
@@ -236,8 +240,8 @@
     const guestWaiting = document.getElementById('guest-waiting');
     const botCountInput = document.getElementById('bot-count');
     const startGameBtn = document.getElementById('start-game-btn');
-    const orbit3d = document.getElementById('orbit-3d');
-    const table3d = document.getElementById('table-3d');
+    const avatarArc = document.getElementById('avatar-arc');
+    const monsterImage = document.getElementById('monster-image');
     const turnIndicator = document.getElementById('turn-indicator');
     const winnerOverlay = document.getElementById('winner-overlay');
     const winnerText = document.getElementById('winner-text');
@@ -252,9 +256,7 @@
     let isHost = false;
 
     signInAnonymously(auth).catch(console.error);
-    onAuthStateChanged(auth, (user) => {
-      if (user) { myUid = user.uid; }
-    });
+    onAuthStateChanged(auth, (user) => { if (user) myUid = user.uid; });
 
     hostBtn.addEventListener('click', () => {
       if (!myAvatarBase64 || !usernameInput.value.trim()) return alert("Need name and avatar!");
@@ -278,9 +280,7 @@
       if (Object.keys(playersObj).length >= 6) return alert("Lobby is full!");
 
       await update(ref(db, `lobbies/${code}/players/${myUid}`), { 
-          name: usernameInput.value.trim(), 
-          avatar: myAvatarBase64, 
-          isBot: false, alive: true 
+          name: usernameInput.value.trim(), avatar: myAvatarBase64, isBot: false, alive: true 
       });
       enterLobby(code);
     });
@@ -319,7 +319,7 @@
           gameScreen.classList.remove('active');
           lobbyScreen.classList.add('active');
           winnerOverlay.style.display = 'none';
-          table3d.classList.remove('spinning', 'vortex-active');
+          monsterImage.className = '';
         }
       });
 
@@ -381,20 +381,23 @@
           return;
         }
 
+        // 1. Highlight target
         const spinPick = active[Math.floor(Math.random() * active.length)];
         await update(ref(db, `lobbies/${currentLobbyCode}/game`), { currentTurn: spinPick, eliminated: null });
         
+        // 2. Wait, then trigger monster sneak-up
         setTimeout(async () => {
           const eliminatedId = active[Math.floor(Math.random() * active.length)];
           await update(ref(db, `lobbies/${currentLobbyCode}/game`), { eliminated: eliminatedId, currentTurn: null });
           
+          // 3. Wait for vanish animation, then reset
           setTimeout(async () => {
             active = active.filter(id => id !== eliminatedId);
             await update(ref(db, `lobbies/${currentLobbyCode}/game`), { activePlayers: active, eliminated: null });
             await update(ref(db, `lobbies/${currentLobbyCode}/players/${eliminatedId}`), { alive: false });
             step(); 
-          }, 2000); 
-        }, 3000); 
+          }, 2500); // Animation duration
+        }, 2000); 
       };
       step();
     }
@@ -403,43 +406,65 @@
       const game = data.game || {};
       const totalPlayers = playerList.length;
       
-      orbit3d.innerHTML = playerList.map((p, index) => {
-        const angle = (index / totalPlayers) * 360;
-        const radius = 180; 
+      // Calculate Cinematic Arc Position
+      // We place them in a semi-circle above the table
+      avatarArc.innerHTML = playerList.map((p, index) => {
+        // Angles between 200 and 340 degrees (top arc)
+        const minAngle = 200;
+        const maxAngle = 340;
+        const angle = totalPlayers > 1 
+            ? minAngle + (index / (totalPlayers - 1)) * (maxAngle - minAngle) 
+            : 270; // Center if only 1 player
+
+        const radians = angle * (Math.PI / 180);
+        
+        // Radius of the arc
+        const radiusX = 300;
+        const radiusY = 120;
+        
+        // Calculate X and Y relative to center (50%)
+        const x = 50 + (Math.cos(radians) * (radiusX / 10));
+        const y = 50 + (Math.sin(radians) * (radiusY / 10));
 
         const isTurn = (p.id === game.currentTurn);
         const isDead = !p.alive;
         const isBeingTaken = (p.id === game.eliminated);
 
         return `
-          <div class="player-3d ${isTurn ? 'active' : ''} ${isDead ? 'eliminated' : ''} ${isBeingTaken ? 'being-taken' : ''}"
-               style="--angle: ${angle}deg; transform: rotateZ(${angle}deg) translateY(-${radius}px);">
-            <div class="card-inner">
-              <img src="${p.avatar}" alt="${p.name}" />
-              <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
-            </div>
+          <div class="cinematic-avatar ${isTurn ? 'active' : ''} ${isDead ? 'eliminated' : ''} ${isBeingTaken ? 'being-taken' : ''}"
+               style="left: ${x}%; top: ${y}%;">
+            <img src="${p.avatar}" alt="${p.name}" />
+            <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
           </div>
         `;
       }).join('');
 
-      if (game.currentTurn) {
-        table3d.classList.add('spinning');
-        table3d.classList.remove('vortex-active');
+      // Trigger Monster Animation
+      if (game.eliminated) {
+        // Find where the victim is
+        const victimElement = document.querySelector(`.cinematic-avatar.being-taken`);
+        if (victimElement) {
+            const rect = victimElement.getBoundingClientRect();
+            // Move monster behind them
+            monsterImage.style.left = `${rect.left + rect.width/2}px`;
+            monsterImage.style.top = `${rect.top + rect.height/2}px`;
+            monsterImage.className = 'sneak-attack';
+        }
+        turnIndicator.textContent = `TAKEN INTO THE DARKNESS!`;
+        turnIndicator.style.color = "#ff1a1a";
+      } else if (game.currentTurn) {
+        monsterImage.className = '';
         const p = playerList.find(x => x.id === game.currentTurn);
         turnIndicator.textContent = `Spinning for ${p ? p.name : '...'}`;
-      } 
-      else if (game.eliminated) {
-        table3d.classList.remove('spinning');
-        table3d.classList.add('vortex-active');
-        turnIndicator.textContent = `TAKEN INTO THE DARKNESS!`;
-      } 
-      else {
-        table3d.classList.remove('spinning', 'vortex-active');
+        turnIndicator.style.color = "#f5c542";
+      } else {
+        monsterImage.className = '';
         turnIndicator.textContent = `Spinning...`;
+        turnIndicator.style.color = "#fff";
       }
 
       if (data.status === 'finished' && game.winner) {
-        table3d.classList.remove('spinning', 'vortex-active');
+        monsterImage.className = '';
         const winnerPlayer = playerList.find(x => x.id === game.winner);
         winnerOverlay.style.display = 'flex';
         winnerText.textContent = `WINNER: ${winnerPlayer ? winnerPlayer.name.toUpperCase() : ''}`;
