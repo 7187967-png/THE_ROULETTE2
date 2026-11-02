@@ -1,32 +1,36 @@
 const express = require('express');
+const multer = require('multer');
 const path = require('path');
-const { handleUpload } = require('@vercel/blob/client');
+const { put } = require('@vercel/blob'); 
 
 const app = express();
-app.use(express.json()); 
+
+// Use memory storage so we don't write to the local disk
+const upload = multer({ storage: multer.memoryStorage() });
+
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.post('/api/upload-avatar', async (req, res) => {
-  console.log("--- BACKEND: Received upload token request ---");
+app.post('/api/upload-avatar', upload.single('avatar'), async (req, res) => {
   try {
-    const jsonResponse = await handleUpload({
-      body: req.body,
-      request: req,
-      onBeforeGenerateToken: async (pathname) => {
-        console.log("--- BACKEND: Generating token for", pathname, "---");
-        return {
-          allowedContentTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-          maximumSizeInBytes: 5 * 1024 * 1024, // 5MB limit
-        };
-      },
-      onUploadCompleted: async ({ blob, tokenPayload }) => {
-        console.log('--- BACKEND: Upload completed successfully:', blob.url);
-      },
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded.' });
+    }
+
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      console.error("MISSING TOKEN: BLOB_READ_WRITE_TOKEN is not set.");
+      return res.status(500).json({ error: 'Server configuration error: Missing Vercel Blob Token.' });
+    }
+
+    const blob = await put(`avatars/${Date.now()}-avatar.jpg`, req.file.buffer, {
+      access: 'public',
+      token: process.env.BLOB_READ_WRITE_TOKEN, 
     });
-    return res.status(200).json(jsonResponse);
+
+    res.json({ url: blob.url });
+
   } catch (error) {
-    console.error('--- BACKEND ERROR:', error);
-    return res.status(400).json({ error: error.message });
+    console.error('Upload error details:', error);
+    res.status(500).json({ error: error.message || 'Upload failed.' });
   }
 });
 
