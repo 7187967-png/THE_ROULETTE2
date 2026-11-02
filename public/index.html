@@ -15,7 +15,6 @@
 </head>
 <body>
 
-  <!-- MENU SCREEN -->
   <div id="menu-screen" class="screen active">
     <div class="glass-panel menu-container">
       <h1 class="game-title">THE ROULETTE<br><span>2</span></h1>
@@ -40,7 +39,6 @@
     </div>
   </div>
 
-  <!-- CROPPER MODAL -->
   <div id="cropper-modal">
     <div class="cropper-container-wrapper"><img id="image-to-crop" src="" alt="Crop me"></div>
     <div class="cropper-controls">
@@ -49,7 +47,6 @@
     </div>
   </div>
 
-  <!-- LOBBY SCREEN -->
   <div id="lobby-screen" class="screen">
     <div class="glass-panel lobby-container">
       <h1 class="lobby-title">LOBBY</h1>
@@ -73,7 +70,6 @@
     </div>
   </div>
 
-  <!-- GAME SCREEN -->
   <div id="game-screen" class="screen">
     <h2 id="turn-indicator">Waiting...</h2>
     
@@ -99,7 +95,6 @@
     </div>
   </div>
 
-  <!-- Music -->
   <audio id="menu-music" loop autoplay>
     <source src="https://www.image2url.com/r2/default/audio/1793564169307-d6bfda4b-1820-4f32-9a8e-696ead87d892.mp3" type="audio/mpeg" />
   </audio>
@@ -145,121 +140,106 @@
 
     // --- MUSIC LOGIC ---
     const audioEl = document.getElementById('menu-music');
-    document.addEventListener('click', () => { 
-        if (audioEl.paused) audioEl.play().catch(() => {}); 
-    });
-    audioEl.addEventListener('pause', () => { 
-        audioEl.play().catch(() => {}); 
-    });
+    document.addEventListener('click', () => { if (audioEl.paused) audioEl.play().catch(() => {}); });
+    audioEl.addEventListener('pause', () => { audioEl.play().catch(() => {}); });
 
-    // --- AVATAR CROPPER & UPLOAD LOGIC ---
+    // --- OLD SYSTEM: AVATAR CROPPER & UPLOAD ---
     let cropper;
-    let originalFile = null;
     const avatarInput = document.getElementById('avatar-input');
     const imageToCrop = document.getElementById('image-to-crop');
     const cropperModal = document.getElementById('cropper-modal');
+    const btnSaveCrop = document.getElementById('btn-save-crop');
+    const btnCancelCrop = document.getElementById('btn-cancel-crop');
 
     avatarInput.addEventListener('change', (e) => {
-      console.log("1. File input changed");
-      const file = e.target.files[0]; 
+      const file = e.target.files[0];
       if (!file) return;
-      
-      originalFile = file;
+
+      // FALLBACK: If your browser blocks Cropper.js, just upload the raw file
+      if (typeof Cropper === 'undefined') {
+          alert("Your browser is blocking the image editor. We will upload the original image instead.");
+          uploadRawFile(file);
+          return;
+      }
+
       const reader = new FileReader();
-      
       reader.onload = (event) => {
-        console.log("2. File read successfully");
-        
-        // Wrap in try/catch to prevent silent crashing if Cropper is blocked
-        try {
-            if (!imageToCrop || !cropperModal) throw new Error("Cropper HTML elements missing.");
-            
-            imageToCrop.src = event.target.result;
-            cropperModal.style.display = 'flex';
-            
-            if (typeof Cropper !== 'undefined') {
-                if (cropper) cropper.destroy();
-                cropper = new Cropper(imageToCrop, { aspectRatio: 1, viewMode: 1, dragMode: 'move', autoCropArea: 1, background: false });
-            } else {
-                console.warn("Cropper.js is blocked. Bypassing crop.");
-                cropperModal.style.display = 'none';
-                processUpload(file); 
-            }
-        } catch (err) {
-            console.error("Error opening cropper:", err);
-            cropperModal.style.display = 'none';
-            processUpload(file); // Fallback to upload original
-        }
+        imageToCrop.src = event.target.result;
+        cropperModal.style.display = 'flex';
+
+        if (cropper) cropper.destroy();
+        cropper = new Cropper(imageToCrop, {
+          aspectRatio: 1,
+          viewMode: 1,
+          dragMode: 'move',
+          autoCropArea: 1,
+          background: false
+        });
       };
       reader.readAsDataURL(file);
     });
 
-    document.getElementById('btn-cancel-crop').addEventListener('click', () => { 
-        cropperModal.style.display = 'none'; 
-        avatarInput.value = ''; 
+    btnCancelCrop.addEventListener('click', () => {
+      cropperModal.style.display = 'none';
+      avatarInput.value = '';
     });
 
-    document.getElementById('btn-save-crop').addEventListener('click', () => {
-      console.log("3. Save Cropped button clicked");
-      if (cropper && typeof Cropper !== 'undefined') {
-          const canvas = cropper.getCroppedCanvas({ width: 256, height: 256 });
-          canvas.toBlob((blob) => {
-              console.log("4. Blob created from crop");
-              cropperModal.style.display = 'none';
-              processUpload(blob);
-          }, 'image/jpeg', 0.9);
-      } else {
-          console.log("4. Bypassing crop, using original file");
-          cropperModal.style.display = 'none';
-          if (originalFile) processUpload(originalFile);
-      }
+    btnSaveCrop.addEventListener('click', () => {
+      if (!cropper) return;
+
+      const canvas = cropper.getCroppedCanvas({ width: 256, height: 256 });
+
+      canvas.toBlob(async (blob) => {
+        cropperModal.style.display = 'none';
+        uploadRawFile(blob);
+      }, 'image/jpeg', 0.9);
     });
 
-    // The Upload Function using standard fetch
-    async function processUpload(fileBlob) {
-        console.log("5. Starting processUpload. Blob size:", fileBlob.size);
-        
-        avatarPreview.src = URL.createObjectURL(fileBlob);
-        avatarPreview.style.display = 'block'; 
+    // The exact original fetch upload function
+    async function uploadRawFile(fileBlob) {
+        const url = URL.createObjectURL(fileBlob);
+        avatarPreview.src = url;
+        avatarPreview.style.display = 'block';
         avatarPlaceholder.style.display = 'none';
-        
-        uploadBtn.textContent = 'Uploading...'; 
+
+        uploadBtn.textContent = 'Uploading...';
         uploadBtn.disabled = true;
 
+        const formData = new FormData();
+        formData.append('avatar', fileBlob, 'avatar.jpg');
+
         try {
-          const formData = new FormData(); 
-          formData.append('avatar', fileBlob, 'avatar.jpg');
-          
-          console.log("6. Sending fetch request to /api/upload-avatar...");
           const res = await fetch('/api/upload-avatar', { method: 'POST', body: formData });
           
-          if (!res.ok) {
-              throw new Error(`HTTP error! status: ${res.status}`);
+          // Check if server crashed (returns HTML instead of JSON)
+          const contentType = res.headers.get("content-type");
+          if (!contentType || !contentType.includes("application/json")) {
+              throw new Error("Server crashed. Check your Vercel logs.");
           }
-          
+
           const data = await res.json();
-          
+
           if (data.url) {
-            console.log("7. Upload Success! URL:", data.url);
             window.myAvatarUrl = data.url;
             try { localStorage.setItem('roulette_avatar', data.url); } catch (e) {}
-            
+
             checkButtons();
-            uploadBtn.textContent = 'Uploaded ✓'; 
+            uploadBtn.textContent = 'Uploaded ✓';
             uploadBtn.style.background = '#10b981';
           } else {
-            throw new Error(data.error || "Unknown error");
+            alert('Upload failed: ' + (data.error || 'Unknown error'));
+            uploadBtn.textContent = 'Try Again';
+            uploadBtn.disabled = false;
           }
-        } catch (error) {
-          console.error("!!! UPLOAD FAILED !!!", error);
-          alert('Upload failed: ' + error.message);
-          uploadBtn.textContent = 'Try Again'; 
+        } catch (err) {
+          console.error(err);
+          alert('Error uploading: ' + err.message);
+          uploadBtn.textContent = 'Try Again';
           uploadBtn.disabled = false;
         }
     }
   </script>
   
-  <!-- Frontend Game Logic -->
   <script type="module" src="game.js"></script>
 </body>
 </html>
