@@ -70,25 +70,21 @@
     </div>
   </div>
 
-  <!-- CINEMATIC GAME SCREEN -->
+  <!-- GAME SCREEN -->
   <div id="game-screen" class="screen">
     <h2 id="turn-indicator">Waiting...</h2>
     
     <div id="cinematic-scene">
-      
-      <!-- The background void -->
+      <!-- The void background -->
       <div id="void-background"></div>
 
-      <!-- The spinning camera/world -->
-      <div id="world">
+      <!-- The carousel that spins -->
+      <div id="carousel">
         <div id="avatar-ring"></div>
       </div>
 
-      <!-- The massive brown table (Stays fixed in foreground) -->
-      <div id="foreground-table">
-        <div id="table-edge"></div>
-      </div>
-
+      <!-- The massive brown table (Stays still) -->
+      <div id="foreground-table"></div>
     </div>
 
     <div id="winner-overlay" class="overlay" style="display:none;">
@@ -138,7 +134,6 @@
     try {
         const savedName = localStorage.getItem('roulette_username');
         if (savedName) usernameInput.value = savedName;
-
         const savedAvatar = localStorage.getItem('roulette_avatar_base64');
         if (savedAvatar) {
             myAvatarBase64 = savedAvatar;
@@ -253,7 +248,7 @@
     const chatInput = document.getElementById('chat-input');
     const chatSendBtn = document.getElementById('chat-send-btn');
     
-    const world = document.getElementById('world');
+    const carousel = document.getElementById('carousel');
     const avatarRing = document.getElementById('avatar-ring');
 
     let myUid = null;
@@ -325,8 +320,8 @@
           gameScreen.classList.remove('active');
           lobbyScreen.classList.add('active');
           winnerOverlay.style.display = 'none';
-          world.style.transition = 'none';
-          world.style.transform = 'rotateY(0deg)'; 
+          carousel.style.transition = 'none';
+          carousel.style.transform = 'rotate(0deg)'; 
         }
       });
 
@@ -388,16 +383,16 @@
           return;
         }
 
-        // 1. Start slow spin (5 seconds)
+        // 1. Spin
         const spinPick = active[Math.floor(Math.random() * active.length)];
         await update(ref(db, `lobbies/${currentLobbyCode}/game`), { currentTurn: spinPick, eliminated: null });
         
-        // 2. Wait for spin to finish, trigger Monster
+        // 2. Wait 5 seconds for the spin animation
         setTimeout(async () => {
           const eliminatedId = active[Math.floor(Math.random() * active.length)];
           await update(ref(db, `lobbies/${currentLobbyCode}/game`), { eliminated: eliminatedId, currentTurn: null });
           
-          // 3. Wait 5 seconds for the monster to pull them back, then reset
+          // 3. Wait 5 seconds for the monster to take them
           setTimeout(async () => {
             active = active.filter(id => id !== eliminatedId);
             await update(ref(db, `lobbies/${currentLobbyCode}/game`), { activePlayers: active, eliminated: null });
@@ -413,45 +408,44 @@
       const game = data.game || {};
       const totalPlayers = playerList.length;
       
-      // 1. Build the avatars
+      // 1. Build Avatars on the Ring
       avatarRing.innerHTML = playerList.map((p, index) => {
-        // Place them in a 180-degree semi-circle behind the table
+        // Angle around the circle
         const angle = (index / totalPlayers) * 360; 
-        const radius = 380; // Distance from center
-
+        
         const isTurn = (p.id === game.currentTurn);
         const isDead = !p.alive;
         const isBeingTaken = (p.id === game.eliminated);
 
+        // Notice the counter-rotation (angle * -1) to keep them upright
         return `
-          <div class="avatar-3d ${isTurn ? 'active' : ''} ${isDead ? 'eliminated' : ''} ${isBeingTaken ? 'being-taken' : ''}"
-               style="--angle: ${angle}deg; transform: rotateY(${angle}deg) translateZ(${radius}px);">
+          <div class="avatar-node ${isTurn ? 'active' : ''} ${isDead ? 'eliminated' : ''} ${isBeingTaken ? 'being-taken' : ''}"
+               style="transform: rotate(${angle}deg) translateY(-400px) rotate(${angle * -1}deg);">
             <div class="card-inner">
               <img src="${p.avatar}" alt="${p.name}" />
               <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
             </div>
+            <!-- Monster placed specifically next to victim -->
             ${isBeingTaken ? `<img class="monster" src="https://imagepaste.org/i/vpxgqzp9.png" alt="Monster">` : ''}
           </div>
         `;
       }).join('');
 
-      // 2. Camera Spin Math
+      // 2. Handle Spin
       if (game.currentTurn) {
         const targetIndex = playerList.findIndex(p => p.id === game.currentTurn);
-        // Calculate how much to rotate so the target ends up at the bottom center (0 degrees)
+        // Math: rotate the carousel so the target is at 0deg (top center)
         const targetAngle = (targetIndex / totalPlayers) * 360;
-        // Rotate 3 full times (1080) plus the target angle. 
-        // We rotate backwards so it lands on the correct avatar.
-        const totalRotation = -(360 * 3) - targetAngle; 
+        const totalRotation = (360 * 4) - targetAngle; // 4 full spins
 
-        world.style.transition = 'transform 5s cubic-bezier(0.1, 0.8, 0.1, 1)';
-        world.style.transform = `rotateY(${totalRotation}deg)`;
+        carousel.style.transition = 'transform 5s cubic-bezier(0.2, 0.8, 0.2, 1)';
+        carousel.style.transform = `rotate(${totalRotation}deg)`;
         
         turnIndicator.textContent = `Spinning...`;
         turnIndicator.style.color = "#f5c542";
       } 
       else if (game.eliminated) {
-        world.style.transition = 'none'; // Stop spinning
+        carousel.style.transition = 'none'; // Freeze carousel
         turnIndicator.textContent = `TAKEN INTO THE DARKNESS!`;
         turnIndicator.style.color = "#ff1a1a";
       } 
