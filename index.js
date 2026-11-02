@@ -1,14 +1,13 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const { put } = require('@vercel/blob'); // Import Vercel Blob
+const { put } = require('@vercel/blob'); 
 
 const app = express();
 
 // Use memory storage so files are not written to the local disk
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Serve static files from the public folder
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.post('/api/upload-avatar', upload.single('avatar'), async (req, res) => {
@@ -17,25 +16,28 @@ app.post('/api/upload-avatar', upload.single('avatar'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded.' });
     }
 
-    // Upload the buffer directly to Vercel Blob
+    // Check if the token exists before trying to upload
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      console.error("MISSING TOKEN: BLOB_READ_WRITE_TOKEN is not set.");
+      return res.status(500).json({ error: 'Server configuration error: Missing Vercel Blob Token.' });
+    }
+
     const blob = await put(`avatars/${Date.now()}-avatar.jpg`, req.file.buffer, {
       access: 'public',
-      token: process.env.BLOB_READ_WRITE_TOKEN, // Reads the token from Vercel environment variables
+      token: process.env.BLOB_READ_WRITE_TOKEN, 
     });
 
-    // Return the public URL of the uploaded image
     res.json({ url: blob.url });
 
   } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ error: 'Upload failed.' });
+    console.error('Upload error details:', error);
+    // Send the actual error message to the frontend so we can see it
+    res.status(500).json({ error: error.message || 'Upload failed.' });
   }
 });
 
-// Export the app for Vercel (Essential for serverless functions)
 module.exports = app;
 
-// Keep listen() for local development only
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
