@@ -131,7 +131,7 @@ body {
 }
 
 /* =========================================
-   THE MONSTER (Full Image)
+   THE MONSTER (Full Image, No Circle)
    ========================================= */
 .monster {
   position: absolute;
@@ -141,7 +141,7 @@ body {
   height: auto; 
   transform: translateY(-50%) scale(0);
   opacity: 0;
-  /* Force it to be a full image, no circle */
+  /* Force it to be a full image, override circle styles */
   border-radius: 0 !important; 
   border: none !important;
   box-shadow: none !important;
