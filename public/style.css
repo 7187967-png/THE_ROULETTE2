@@ -51,7 +51,7 @@ body {
 .bot-input-group input { width: 70px; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #111; color: #fff; text-align: center; font-size: 1.2em; }
 
 /* =========================================
-   THE CINEMATIC 3D SCENE
+   THE CAROUSEL 3D SCENE (Matches Drawing)
    ========================================= */
 #game-screen { overflow: hidden; position: relative; background: #000; }
 
@@ -62,10 +62,7 @@ body {
   border: 1px solid var(--primary-glow); transition: 0.3s;
 }
 
-#cinematic-scene { 
-  width: 100%; height: 100%; position: relative; 
-  perspective: 1000px; /* Camera is placed in the center */
-}
+#cinematic-scene { width: 100%; height: 100%; position: relative; overflow: hidden; }
 
 #void-background {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -73,50 +70,55 @@ body {
   z-index: 1;
 }
 
-/* The World rotates to spin the camera */
-#world {
-  position: absolute; top: 40%; left: 50%;
-  transform-style: preserve-3d;
-  transition: transform 5s cubic-bezier(0.1, 0.8, 0.1, 1);
+/* The carousel wheel that spins behind the table */
+#carousel {
+  position: absolute;
+  top: 80%; /* Center of the wheel is pushed down below the table */
+  left: 50%;
+  width: 0; height: 0;
   z-index: 5;
+  /* We handle rotation purely in JS for smooth control */
 }
 
-#avatar-ring { position: relative; transform-style: preserve-3d; }
+#avatar-ring { position: relative; width: 0; height: 0; }
 
-.avatar-3d {
-  position: absolute; top: 0; left: 0;
-  transform-style: preserve-3d;
-}
-
-.avatar-3d .card-inner {
+/* Each Avatar in the carousel */
+.avatar-node {
+  position: absolute;
+  top: 0; left: 0;
+  /* The magic happens here: rotate the container, push out, and counter-rotate the card */
+  transform-origin: center center;
   display: flex; flex-direction: column; align-items: center;
-  /* Stand them up and face the camera */
-  transform: translate(-50%, -50%) rotateY(calc(var(--angle) * -1)) rotateX(-10deg); 
 }
 
-.avatar-3d img {
+.avatar-node .card-inner {
+  display: flex; flex-direction: column; align-items: center;
+  transition: all 0.3s;
+}
+
+.avatar-node img {
   width: 100px; height: 100px;
   border-radius: 50%; object-fit: cover;
   border: 4px solid #222; background: #000;
   box-shadow: 0 15px 30px rgba(0,0,0,0.9);
 }
 
-.avatar-3d span {
+.avatar-node span {
   font-size: 1.1em; font-weight: 800; margin-top: 10px;
   background: rgba(0,0,0,0.9); padding: 5px 15px;
   border-radius: 20px; border: 1px solid rgba(255,255,255,0.2);
   white-space: nowrap;
 }
 
-.avatar-3d.active img { border-color: #f5c542; box-shadow: 0 0 40px #f5c542; }
-.avatar-3d.eliminated { opacity: 0.1; filter: grayscale(1); }
+.avatar-node.active img { border-color: #f5c542; box-shadow: 0 0 40px #f5c542; }
+.avatar-node.eliminated { opacity: 0.1; filter: grayscale(1); }
 
-/* THE BIG BROWN TABLE (Foreground) */
+/* THE MASSIVE BROWN TABLE */
 #foreground-table {
   position: absolute;
   bottom: -10%; left: -25%;
-  width: 150%; height: 65%;
-  /* Rich brown gradient */
+  width: 150%; height: 60%;
+  /* Deep brown gradient */
   background: radial-gradient(ellipse at top, #8c5a35 0%, #5c341c 40%, #261207 100%);
   border-radius: 50% 50% 0 0;
   box-shadow: 0 -20px 80px rgba(0,0,0,0.9);
@@ -124,51 +126,55 @@ body {
   border-top: 6px solid #3a1e0f;
 }
 
-#table-edge {
-  position: absolute; top: 0; left: 0; width: 100%; height: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  filter: blur(5px);
-}
-
 /* =========================================
-   THE MONSTER ANIMATION (Pulls Back)
+   THE MONSTER ANIMATION (Right Side)
    ========================================= */
 .monster {
   position: absolute;
-  top: 50%; left: 50%;
-  width: 300px; height: 300px;
-  transform: translate(-50%, -50%) translateZ(-10px) scale(0.5);
+  top: 50%; 
+  /* Position it to the right of the victim */
+  left: 80px; 
+  width: 150px; height: 250px;
+  transform: translateY(-50%) scale(0);
   opacity: 0;
-  /* Normal image, just add a red glow to look evil */
   filter: drop-shadow(0 0 30px red) brightness(0.8);
   pointer-events: none;
-  z-index: -1; /* Sits behind the avatar */
 }
 
-.avatar-3d.being-taken .monster {
-  animation: sneakAndPullBack 5s forwards;
+.avatar-node.being-taken .monster {
+  animation: sneakAndGrab 5s forwards;
 }
 
-.avatar-3d.being-taken .card-inner {
+.avatar-node.being-taken .card-inner {
   animation: draggedIntoDarkness 5s forwards;
 }
 
-@keyframes sneakAndPullBack {
-  0% { opacity: 0; transform: translate(-50%, -20%) translateZ(-50px) scale(0.5); }
-  20% { opacity: 1; transform: translate(-50%, -60%) translateZ(-50px) scale(1.2); }
-  40% { transform: translate(-50%, -50%) translateZ(-20px) scale(1.5); }
-  100% { opacity: 0; transform: translate(-50%, -50%) translateZ(-800px) scale(0.1); } /* Deep into darkness */
+@keyframes sneakAndGrab {
+  0% { 
+    opacity: 0; transform: translateY(-50%) translateX(100px) scale(0.5); 
+  }
+  20% { 
+    /* Rises up to their right */
+    opacity: 1; transform: translateY(-50%) translateX(0) scale(1); 
+  }
+  40% { 
+    /* Grabs them */
+    transform: translateY(-50%) translateX(0) scale(1.1); 
+  }
+  100% { 
+    /* Pulls them backward (right) into the void */
+    opacity: 0; transform: translateY(-50%) translateX(300px) scale(0.1); 
+  }
 }
 
 @keyframes draggedIntoDarkness {
   0%, 30% { 
-    transform: translate(-50%, -50%) rotateY(calc(var(--angle) * -1)) rotateX(-10deg) scale(1); 
-    opacity: 1; 
+    opacity: 1; transform: translateX(0) scale(1); 
   }
   100% { 
-    /* Pulled backward deep into the void */
-    transform: translate(-50%, -50%) rotateY(calc(var(--angle) * -1)) rotateX(-10deg) scale(0.2) translateY(100px); 
-    opacity: 0; filter: blur(10px);
+    /* Dragged to the right into darkness */
+    opacity: 0; transform: translateX(250px) scale(0.2); 
+    filter: blur(10px);
   }
 }
 
