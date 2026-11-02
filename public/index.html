@@ -115,7 +115,6 @@
     const joinBtn = document.getElementById('join-btn');
     const hostBtn = document.getElementById('host-btn');
 
-    // Music
     const audioEl = document.getElementById('menu-music');
     document.addEventListener('click', () => { if (audioEl.paused) audioEl.play().catch(() => {}); });
     audioEl.addEventListener('pause', () => { audioEl.play().catch(() => {}); });
@@ -214,7 +213,7 @@
   <!-- GAME LOGIC -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getDatabase, ref, set, push, onValue, update, onDisconnect, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    import { getDatabase, ref, set, push, onValue, update, onDisconnect, get, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
     const firebaseConfig = {
@@ -303,8 +302,10 @@
         const playerList = Object.keys(players).map(id => ({ id, ...players[id] }));
         isHost = (data.host === myUid);
 
+        // Lobby Render (Added Kick Button)
         lobbyPlayerList.innerHTML = playerList.map(p => `
           <div class="player-card">
+            ${isHost && p.id !== myUid ? `<button class="kick-btn" onclick="kickPlayer('${p.id}')">X</button>` : ''}
             <img src="${p.avatar}" alt="${p.name}" />
             <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
           </div>
@@ -334,6 +335,13 @@
         }
       });
     }
+
+    // KICK PLAYER FUNCTION
+    window.kickPlayer = async (playerId) => {
+        if (!isHost) return;
+        if (playerId === myUid) return alert("You can't kick yourself!");
+        await remove(ref(db, `lobbies/${currentLobbyCode}/players/${playerId}`));
+    };
 
     chatSendBtn.addEventListener('click', async () => {
       const text = chatInput.value.trim();
@@ -384,22 +392,22 @@
           return;
         }
 
-        // 1. Spin (Takes 5 seconds)
+        // 1. Spin
         const spinPick = active[Math.floor(Math.random() * active.length)];
         await update(ref(db, `lobbies/${currentLobbyCode}/game`), { currentTurn: spinPick, eliminated: null });
         
-        // 2. Wait, then trigger Monster
+        // 2. Wait 5 seconds for spin, trigger monster
         setTimeout(async () => {
           const eliminatedId = active[Math.floor(Math.random() * active.length)];
           await update(ref(db, `lobbies/${currentLobbyCode}/game`), { eliminated: eliminatedId, currentTurn: null });
           
-          // 3. Wait 5 seconds for monster to drag them, then reset
+          // 3. Wait 5 seconds for taking, then reset
           setTimeout(async () => {
             active = active.filter(id => id !== eliminatedId);
             await update(ref(db, `lobbies/${currentLobbyCode}/game`), { activePlayers: active, eliminated: null });
             await update(ref(db, `lobbies/${currentLobbyCode}/players/${eliminatedId}`), { alive: false });
             step(); 
-          }, 5000); // 5 SECOND DELAY FOR TAKING
+          }, 5000); // 5 SECOND DELAY
         }, 5000); // 5 SECOND SPIN
       };
       step();
@@ -409,7 +417,7 @@
       const game = data.game || {};
       const totalPlayers = playerList.length;
       
-      // 1. Build Avatars on the Ring
+      // 1. Build Avatars
       avatarRing.innerHTML = playerList.map((p, index) => {
         const angle = (index / totalPlayers) * 360; 
         
@@ -420,30 +428,28 @@
         return `
           <div class="avatar-node ${isTurn ? 'active' : ''} ${isDead ? 'eliminated' : ''} ${isBeingTaken ? 'being-taken' : ''}"
                style="--angle: ${angle};">
-            <div class="card-inner">
+            <div class="card-inner" style="transform: rotate(${-angle}deg);">
               <img src="${p.avatar}" alt="${p.name}" />
               <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
-              <!-- Monster is right next to the avatar -->
               ${isBeingTaken ? `<img class="monster" src="https://imagepaste.org/i/vpxgqzp9.png" alt="Monster">` : ''}
             </div>
           </div>
         `;
       }).join('');
 
-      // 2. Camera Spin
+      // 2. Handle Spin
       if (game.currentTurn) {
         const targetIndex = playerList.findIndex(p => p.id === game.currentTurn);
         const targetAngle = (targetIndex / totalPlayers) * 360;
-        const totalRotation = (360 * 4) - targetAngle;
+        const totalRotation = (360 * 5) - targetAngle; // 5 full spins
 
         carousel.style.transition = 'transform 5s cubic-bezier(0.2, 0.8, 0.2, 1)';
         carousel.style.transform = `rotate(${totalRotation}deg)`;
 
-        // Counter-rotate the inner cards to keep them perfectly straight
+        // Counter-rotate inner cards to keep them perfectly straight
         document.querySelectorAll('.card-inner').forEach((el, i) => {
             const nodeAngle = (i / totalPlayers) * 360;
             el.style.transition = 'transform 5s cubic-bezier(0.2, 0.8, 0.2, 1)';
-            // rotate opposite to carousel + opposite to node position = perfectly upright
             el.style.transform = `rotate(${-(totalRotation + nodeAngle)}deg)`; 
         });
         
@@ -451,7 +457,7 @@
         turnIndicator.style.color = "#f5c542";
       } 
       else if (game.eliminated) {
-        carousel.style.transition = 'none'; // Freeze carousel
+        carousel.style.transition = 'none';
         turnIndicator.textContent = `TAKEN INTO THE DARKNESS!`;
         turnIndicator.style.color = "#ff1a1a";
       } 
