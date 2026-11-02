@@ -36,14 +36,16 @@ const turnIndicator = document.getElementById('turn-indicator');
 const winnerOverlay = document.getElementById('winner-overlay');
 const winnerText = document.getElementById('winner-text');
 const backToLobbyBtn = document.getElementById('back-to-lobby-btn');
+const chatMessages = document.getElementById('chat-messages');
+const chatInput = document.getElementById('chat-input');
+const chatSendBtn = document.getElementById('chat-send-btn');
 
 let myUid = null;
-let myAvatarUrl = ''; 
-let myUsername = ''; 
 let currentLobbyCode = null;
 let currentLobbyRef = null;
 let isHost = false;
 
+// Disable buttons until auth and avatar are ready
 hostBtn.disabled = true;
 joinBtn.disabled = true;
 
@@ -51,25 +53,40 @@ signInAnonymously(auth).catch((error) => console.error("Auth error:", error));
 onAuthStateChanged(auth, (user) => {
   if (user) {
     myUid = user.uid;
-    hostBtn.disabled = false;
-    joinBtn.disabled = false;
+    // Re-check avatar and username from localStorage
+    if (window.myAvatarUrl && usernameInput.value.trim() !== '') {
+        hostBtn.disabled = false;
+        joinBtn.disabled = false;
+    }
   }
 });
 
 const checkUserDetails = () => {
-    myAvatarUrl = window.myAvatarUrl || '';
-    myUsername = usernameInput ? usernameInput.value.trim() : '';
+    const myAvatarUrl = window.myAvatarUrl || '';
+    const myUsername = usernameInput ? usernameInput.value.trim() : '';
     if (!myAvatarUrl) return alert("Upload avatar first!"), false;
     if (!myUsername) return alert("Enter username first!"), false;
     return true;
 };
 
+// Re-enable buttons if user types name after avatar is uploaded
+usernameInput.addEventListener('input', () => {
+    if (window.myAvatarUrl && usernameInput.value.trim() !== '' && myUid) {
+        hostBtn.disabled = false;
+        joinBtn.disabled = false;
+    } else {
+        hostBtn.disabled = true;
+        joinBtn.disabled = true;
+    }
+});
+
 hostBtn.addEventListener('click', () => {
   if (!checkUserDetails()) return;
   const code = generateRoomCode();
+  const myUsername = usernameInput.value.trim();
   set(ref(db, 'lobbies/' + code), {
     host: myUid, status: 'waiting',
-    players: { [myUid]: { name: myUsername, avatar: myAvatarUrl, isBot: false, alive: true } }
+    players: { [myUid]: { name: myUsername, avatar: window.myAvatarUrl, isBot: false, alive: true } }
   }).then(() => enterLobby(code));
 });
 
@@ -82,11 +99,12 @@ joinBtn.addEventListener('click', async () => {
   if (!snapshot.exists()) return alert("Lobby not found!");
   const lobby = snapshot.val();
   const playersObj = lobby.players || {};
+  const myUsername = usernameInput.value.trim();
   
   if (Object.keys(playersObj).length >= 6) return alert("Lobby is full!");
   if (Object.values(playersObj).some(p => p.name.toLowerCase() === myUsername.toLowerCase())) return alert("Name taken!");
 
-  await update(ref(db, `lobbies/${code}/players/${myUid}`), { name: myUsername, avatar: myAvatarUrl, isBot: false, alive: true });
+  await update(ref(db, `lobbies/${code}/players/${myUid}`), { name: myUsername, avatar: window.myAvatarUrl, isBot: false, alive: true });
   enterLobby(code);
 });
 
@@ -129,7 +147,24 @@ function enterLobby(code) {
       table3d.classList.remove('spinning', 'vortex-active');
     }
   });
+
+  onValue(ref(db, `lobbies/${code}/chat`), (snapshot) => {
+    const msgs = snapshot.val();
+    if (msgs) {
+      chatMessages.innerHTML = Object.values(msgs).map(m => `<p><strong>${m.sender}:</strong> ${m.text}</p>`).join('');
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+  });
 }
+
+chatSendBtn.addEventListener('click', async () => {
+  const text = chatInput.value.trim();
+  const myUsername = usernameInput.value.trim();
+  if (!text || !currentLobbyCode || !myUsername) return;
+  await push(ref(db, `lobbies/${currentLobbyCode}/chat`), { sender: myUsername, text, timestamp: Date.now() });
+  chatInput.value = '';
+});
+chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') chatSendBtn.click(); });
 
 startGameBtn.addEventListener('click', async () => {
   const snapshot = await get(currentLobbyRef);
@@ -145,7 +180,6 @@ startGameBtn.addEventListener('click', async () => {
   const updates = {};
   const activePlayerIds = Object.keys(playersObj);
 
-  // ADD BOTS PROPERLY
   for (let i = 0; i < botCount; i++) {
     const botId = 'bot_' + Date.now() + '_' + i;
     updates[`players/${botId}`] = { 
@@ -176,25 +210,17 @@ async function runHostGameLoop() {
       return;
     }
 
-    // 1. Pick Target (Visual Spin)
     const spinPick = active[Math.floor(Math.random() * active.length)];
     await update(ref(db, `lobbies/${currentLobbyCode}/game`), { currentTurn: spinPick, eliminated: null });
     
-    // 2. Wait for the 3D spin animation (3 seconds)
     setTimeout(async () => {
       const eliminatedId = active[Math.floor(Math.random() * active.length)];
-      
-      // Trigger Vortex Animation
       await update(ref(db, `lobbies/${currentLobbyCode}/game`), { eliminated: eliminatedId, currentTurn: null });
       
-      // 3. Wait for the Vortex to take them (2 seconds)
       setTimeout(async () => {
         active = active.filter(id => id !== eliminatedId);
-        
-        // Reset and next turn
         await update(ref(db, `lobbies/${currentLobbyCode}/game`), { activePlayers: active, eliminated: null });
         await update(ref(db, `lobbies/${currentLobbyCode}/players/${eliminatedId}`), { alive: false });
-        
         step(); 
       }, 2000); 
     }, 3000); 
@@ -206,18 +232,14 @@ function updateGameUI(data, playerList) {
   const game = data.game || {};
   const totalPlayers = playerList.length;
   
-  // 3D Positioning Logic
   orbit3d.innerHTML = playerList.map((p, index) => {
-    // Angle for the circle (0 to 360)
     const angle = (index / totalPlayers) * 360;
-    // Push players out to the edge
     const radius = 180; 
 
     const isTurn = (p.id === game.currentTurn);
     const isDead = !p.alive;
     const isBeingTaken = (p.id === game.eliminated);
 
-    // Inline style uses CSS variables to allow 3D transforms
     return `
       <div class="player-3d ${isTurn ? 'active' : ''} ${isDead ? 'eliminated' : ''} ${isBeingTaken ? 'being-taken' : ''}"
            style="--angle: ${angle}deg; transform: rotateZ(${angle}deg) translateY(-${radius}px);">
@@ -229,19 +251,18 @@ function updateGameUI(data, playerList) {
     `;
   }).join('');
 
-  // Animation State Management
   if (game.currentTurn) {
     table3d.classList.add('spinning');
     table3d.classList.remove('vortex-active');
     const p = playerList.find(x => x.id === game.currentTurn);
     turnIndicator.textContent = `Spinning for ${p ? p.name : '...'}`;
-    turnIndicator.style.color = "#f5c542"; // Yellow
+    turnIndicator.style.color = "#f5c542"; 
   } 
   else if (game.eliminated) {
     table3d.classList.remove('spinning');
     table3d.classList.add('vortex-active');
     turnIndicator.textContent = `TAKEN INTO THE DARKNESS!`;
-    turnIndicator.style.color = "#ff1a1a"; // Red
+    turnIndicator.style.color = "#ff1a1a"; 
   } 
   else {
     table3d.classList.remove('spinning', 'vortex-active');
