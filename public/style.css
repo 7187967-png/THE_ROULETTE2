@@ -76,7 +76,6 @@ body {
   z-index: 1;
 }
 
-/* The carousel wheel */
 #carousel {
   position: absolute;
   top: 90vh; /* Center pushed down to create a gentle top arc */
@@ -110,7 +109,6 @@ body {
   position: relative;
 }
 
-/* Target ONLY the avatar image, so monster isn't affected */
 .avatar-image {
   width: 100px; height: 100px;
   border-radius: 50%; object-fit: cover;
@@ -128,11 +126,11 @@ body {
 .avatar-node.active .avatar-image { border-color: #f5c542; box-shadow: 0 0 40px #f5c542; }
 .avatar-node.eliminated { opacity: 0.1; filter: grayscale(1); }
 
-/* SMALLER MASSIVE BROWN TABLE (So spin is visible) */
+/* SMALLER MASSIVE BROWN TABLE */
 #foreground-table {
   position: absolute;
   bottom: -5%; left: -10%;
-  width: 120%; height: 40%; /* Smaller height so avatars can be seen */
+  width: 120%; height: 40%; 
   background: radial-gradient(ellipse at top, #8c5a35 0%, #5c341c 40%, #261207 100%);
   border-radius: 50% 50% 0 0;
   box-shadow: 0 -20px 80px rgba(0,0,0,0.9);
@@ -151,7 +149,6 @@ body {
   height: auto; 
   transform: translateY(-50%) scale(0);
   opacity: 0;
-  /* Force full image */
   border-radius: 0 !important; 
   border: none !important;
   box-shadow: none !important;
@@ -165,7 +162,6 @@ body {
 }
 
 .avatar-node.being-taken .card-anim {
-  /* ONLY translate and scale, NO rotation */
   animation: draggedIntoDarkness 5s forwards;
 }
 
@@ -177,17 +173,8 @@ body {
 }
 
 @keyframes draggedIntoDarkness {
-  0%, 30% { 
-    opacity: 1; 
-    translate: 0 0; 
-    scale: 1; 
-  }
-  100% { 
-    opacity: 0; 
-    translate: 250px 0; 
-    scale: 0.2; 
-    filter: blur(10px); 
-  }
+  0%, 30% { opacity: 1; translate: 0 0; scale: 1; }
+  100% { opacity: 0; translate: 250px 0; scale: 0.2; filter: blur(10px); }
 }
 
 /* Overlays & Chat */
