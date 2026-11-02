@@ -75,15 +75,15 @@
     <h2 id="turn-indicator">Waiting...</h2>
     
     <div id="cinematic-scene">
-      <!-- The void background -->
+      <!-- The dark background void -->
       <div id="void-background"></div>
 
-      <!-- The carousel that spins -->
+      <!-- The circular track that spins behind the table -->
       <div id="carousel">
         <div id="avatar-ring"></div>
       </div>
 
-      <!-- The massive brown table (Stays still) -->
+      <!-- The massive brown table -->
       <div id="foreground-table"></div>
     </div>
 
@@ -115,6 +115,7 @@
     const joinBtn = document.getElementById('join-btn');
     const hostBtn = document.getElementById('host-btn');
 
+    // Music
     const audioEl = document.getElementById('menu-music');
     document.addEventListener('click', () => { if (audioEl.paused) audioEl.play().catch(() => {}); });
     audioEl.addEventListener('pause', () => { audioEl.play().catch(() => {}); });
@@ -383,22 +384,22 @@
           return;
         }
 
-        // 1. Spin
+        // 1. Spin (Takes 5 seconds)
         const spinPick = active[Math.floor(Math.random() * active.length)];
         await update(ref(db, `lobbies/${currentLobbyCode}/game`), { currentTurn: spinPick, eliminated: null });
         
-        // 2. Wait 5 seconds for the spin animation
+        // 2. Wait, then trigger Monster
         setTimeout(async () => {
           const eliminatedId = active[Math.floor(Math.random() * active.length)];
           await update(ref(db, `lobbies/${currentLobbyCode}/game`), { eliminated: eliminatedId, currentTurn: null });
           
-          // 3. Wait 5 seconds for the monster to take them
+          // 3. Wait 5 seconds for monster to drag them, then reset
           setTimeout(async () => {
             active = active.filter(id => id !== eliminatedId);
             await update(ref(db, `lobbies/${currentLobbyCode}/game`), { activePlayers: active, eliminated: null });
             await update(ref(db, `lobbies/${currentLobbyCode}/players/${eliminatedId}`), { alive: false });
             step(); 
-          }, 5000); // 5 SECOND DELAY
+          }, 5000); // 5 SECOND DELAY FOR TAKING
         }, 5000); // 5 SECOND SPIN
       };
       step();
@@ -410,36 +411,41 @@
       
       // 1. Build Avatars on the Ring
       avatarRing.innerHTML = playerList.map((p, index) => {
-        // Angle around the circle
         const angle = (index / totalPlayers) * 360; 
         
         const isTurn = (p.id === game.currentTurn);
         const isDead = !p.alive;
         const isBeingTaken = (p.id === game.eliminated);
 
-        // Notice the counter-rotation (angle * -1) to keep them upright
         return `
           <div class="avatar-node ${isTurn ? 'active' : ''} ${isDead ? 'eliminated' : ''} ${isBeingTaken ? 'being-taken' : ''}"
-               style="transform: rotate(${angle}deg) translateY(-400px) rotate(${angle * -1}deg);">
+               style="--angle: ${angle};">
             <div class="card-inner">
               <img src="${p.avatar}" alt="${p.name}" />
               <span>${p.name}${p.isBot ? ' 🤖' : ''}</span>
+              <!-- Monster is right next to the avatar -->
+              ${isBeingTaken ? `<img class="monster" src="https://imagepaste.org/i/vpxgqzp9.png" alt="Monster">` : ''}
             </div>
-            <!-- Monster placed specifically next to victim -->
-            ${isBeingTaken ? `<img class="monster" src="https://imagepaste.org/i/vpxgqzp9.png" alt="Monster">` : ''}
           </div>
         `;
       }).join('');
 
-      // 2. Handle Spin
+      // 2. Camera Spin
       if (game.currentTurn) {
         const targetIndex = playerList.findIndex(p => p.id === game.currentTurn);
-        // Math: rotate the carousel so the target is at 0deg (top center)
         const targetAngle = (targetIndex / totalPlayers) * 360;
-        const totalRotation = (360 * 4) - targetAngle; // 4 full spins
+        const totalRotation = (360 * 4) - targetAngle;
 
         carousel.style.transition = 'transform 5s cubic-bezier(0.2, 0.8, 0.2, 1)';
         carousel.style.transform = `rotate(${totalRotation}deg)`;
+
+        // Counter-rotate the inner cards to keep them perfectly straight
+        document.querySelectorAll('.card-inner').forEach((el, i) => {
+            const nodeAngle = (i / totalPlayers) * 360;
+            el.style.transition = 'transform 5s cubic-bezier(0.2, 0.8, 0.2, 1)';
+            // rotate opposite to carousel + opposite to node position = perfectly upright
+            el.style.transform = `rotate(${-(totalRotation + nodeAngle)}deg)`; 
+        });
         
         turnIndicator.textContent = `Spinning...`;
         turnIndicator.style.color = "#f5c542";
